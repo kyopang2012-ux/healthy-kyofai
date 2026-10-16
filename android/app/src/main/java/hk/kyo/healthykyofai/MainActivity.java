@@ -1,4 +1,4 @@
-package hk.kyo.shikyuk;
+package hk.kyo.healthykyofai;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Hosts the 食郁記 web app (packaged from /www) in a WebView.
+ * Hosts the Healthy KyoFai web app (packaged from /www) in a WebView.
  * The page is served from https://appassets.androidplatform.net so it gets a stable,
  * secure origin: records in localStorage persist and the Anthropic API accepts the requests.
  */
@@ -175,7 +175,7 @@ public class MainActivity extends Activity {
 
     private static String safeName(String name) {
         String n = name == null ? "" : name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-        return n.isEmpty() ? "shikyuk.dat" : n;
+        return n.isEmpty() ? "healthykyofai.dat" : n;
     }
 
     private void share(byte[] bytes, String name, String mime) throws IOException {
@@ -197,7 +197,7 @@ public class MainActivity extends Activity {
     }
 
     private class Bridge {
-        /** Saves to Downloads/食郁記 (Android 10+); older phones get the share sheet. */
+        /** Saves to Downloads/Healthy KyoFai (Android 10+); older phones get the share sheet. */
         @JavascriptInterface
         public String saveFile(String base64, String filename, String mime) {
             try {
@@ -207,14 +207,14 @@ public class MainActivity extends Activity {
                     ContentValues cv = new ContentValues();
                     cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
                     cv.put(MediaStore.MediaColumns.MIME_TYPE, mime);
-                    cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/食郁記");
+                    cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Healthy KyoFai");
                     Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
                     if (uri == null) return "error:insert";
                     try (OutputStream os = getContentResolver().openOutputStream(uri)) {
                         if (os == null) return "error:open";
                         os.write(bytes);
                     }
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "已儲存到 下載/食郁記/" + name, Toast.LENGTH_LONG).show());
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "已儲存到 下載/Healthy KyoFai/" + name, Toast.LENGTH_LONG).show());
                     return "saved";
                 }
                 share(bytes, name, mime);

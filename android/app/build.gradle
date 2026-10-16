@@ -9,15 +9,15 @@ def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
 def keystorePath = System.getenv("SIGNING_KEYSTORE_PATH")
 
 android {
-    namespace 'hk.kyo.shikyuk'
+    namespace 'hk.kyo.healthykyofai'
     compileSdk 34
 
     defaultConfig {
-        applicationId "hk.kyo.shikyuk"
+        applicationId "hk.kyo.healthykyofai"
         minSdk 26
         targetSdk 34
         versionCode runNumber
-        versionName "1.1.${runNumber}"
+        versionName "1.2.${runNumber}"
     }
 
     signingConfigs {

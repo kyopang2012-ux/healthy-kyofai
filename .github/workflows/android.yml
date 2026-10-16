@@ -47,20 +47,20 @@ jobs:
         run: gradle -p android assembleRelease --no-daemon --stacktrace
 
       - name: Name the APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk "shikyuk-v1.1.${{ github.run_number }}.apk"
+        run: cp android/app/build/outputs/apk/release/app-release.apk "HealthyKyoFai-v1.2.${{ github.run_number }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: shikyuk-apk
-          path: shikyuk-*.apk
+          name: HealthyKyoFai-apk
+          path: HealthyKyoFai-*.apk
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.${{ github.run_number }}
-          name: 食郁記 v1.1.${{ github.run_number }}
+          tag_name: v1.2.${{ github.run_number }}
+          name: Healthy KyoFai v1.2.${{ github.run_number }}
           make_latest: true
-          files: shikyuk-*.apk
+          files: HealthyKyoFai-*.apk
           body: |
-            用手機開呢頁，撳下面嘅 `shikyuk-v1.1.${{ github.run_number }}.apk` 下載安裝。
+            用手機開呢頁，撳下面嘅 `HealthyKyoFai-v1.2.${{ github.run_number }}.apk` 下載安裝。
             第一次安裝要喺 Android 設定允許「安裝不明來源嘅 app」。之後嘅版本直接安裝就會覆蓋舊版，記錄會保留。

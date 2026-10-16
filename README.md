@@ -1,4 +1,6 @@
-# 食郁記
+# Healthy KyoFai
+
+> Updated : 16/10/2026 · v1.2
 
 記錄每日飲食同運動嘅手機 app。影相俾 AI 估卡路里同營養，用 MET 計運動消耗，記錄飲水同體重，一鍵匯出 Excel。
 
@@ -34,7 +36,7 @@
 
 ## 安裝 APK
 
-1. 用 Android 手機開 [Releases](../../releases/latest)，下載 `shikyuk-v1.1.x.apk`。
+1. 用 Android 手機開 [Releases](../../releases/latest)，下載 `HealthyKyoFai-v1.2.x.apk`。
 2. 第一次安裝要允許「安裝不明來源嘅 app」。
 3. 之後有新版本，直接安裝就會覆蓋舊版，記錄會保留。
 

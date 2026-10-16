@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>食郁記</title>
+<title>Healthy KyoFai</title>
 <meta name="description" content="記錄每日飲食同運動：影相俾 AI 估卡路里、MET 計運動消耗、飲水、體重進度，一鍵匯出 Excel。">
 <meta name="theme-color" content="#15120f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="食郁記">
+<meta name="apple-mobile-web-app-title" content="Healthy KyoFai">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='10' fill='%2315120f'/%3E%3Ccircle cx='22' cy='22' r='16' fill='none' stroke='%23f2b04f' stroke-width='3.5'/%3E%3Cpath d='M12 22h20a10 10 0 0 1-20 0z' fill='%23f2b04f'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -59,13 +59,17 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
 /* header */
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:6px 14px}
 .brand{display:flex;align-items:center;gap:10px}
-.brand svg{width:42px;height:42px}
-.brand-name{font-weight:900;font-size:26px;letter-spacing:.04em}
-.brand-sub{display:block;font-size:11.5px;color:var(--dim);font-weight:500;letter-spacing:.12em;margin-top:-4px}
+.brand{min-width:0}
+.brand svg{width:40px;height:40px;flex:none}
+.brand-name{display:block;font-family:var(--font-num);font-weight:600;font-size:21px;line-height:1.15;letter-spacing:.005em;white-space:nowrap}
+.brand-name b{font-weight:800;color:var(--amber)}
+.brand-sub{display:block;font-size:11.5px;color:var(--dim);font-weight:500;letter-spacing:.12em;margin-top:2px}
+.top-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.updated{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap;letter-spacing:.02em}
 .top-act{display:flex;align-items:center;gap:8px}
-.icon-btn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 .icon-btn[aria-pressed="false"]{color:var(--amber);border-color:rgba(242,176,79,.45)}
-.streak{display:flex;align-items:center;gap:6px;height:42px;padding:0 14px;border-radius:21px;background:var(--surface);border:1px solid var(--line);color:var(--amber);font-family:var(--font-num);font-weight:700;font-size:18px}
+.streak{display:flex;align-items:center;gap:6px;height:38px;padding:0 13px;border-radius:19px;background:var(--surface);border:1px solid var(--line);color:var(--amber);font-family:var(--font-num);font-weight:700;font-size:18px}
 .streak svg{width:18px;height:18px}
 
 /* cards & text */
@@ -321,6 +325,9 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px;min-width:420px}
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--bg);font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;max-width:calc(100% - 32px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 
 @media (max-width:380px){
+  .brand-name{font-size:18.5px}
+  .brand svg{width:34px;height:34px}
+  .updated{font-size:10.5px;padding:2px 7px}
   .hero{font-size:48px}
   .ex-grid{grid-template-columns:repeat(3,1fr)}
   .item-top{grid-template-columns:1fr 84px 34px}
@@ -368,7 +375,8 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
 };
 const K_LOCAL = "skj.local.v1", K_PH = "skj.photos.v1", K_CACHE = "skj.cache.v1", K_HIDE = "skj.hide", K_AI = "skj.ai.v1";
-const APP_VER = "1.1";
+const APP_VER = "1.2";
+const APP_UPDATED = "16/10/2026";
 
 /* ---------- platform: Claude artifact, Android app, or plain web ---------- */
 const BRIDGE = (window.AndroidBridge && typeof window.AndroidBridge.saveFile === "function") ? window.AndroidBridge : null;
@@ -722,10 +730,13 @@ function barChart(days, valFn, limit, color, overColor) {
 /* ---------- header & nav ---------- */
 function renderTop() {
   $("#top").innerHTML = `
-    <div class="brand">${LOGO}<div><span class="brand-name">食郁記</span><span class="brand-sub">食得醒 · 郁得多</span></div></div>
+    <div class="brand">${LOGO}<div><span class="brand-name">Healthy <b>KyoFai</b></span><span class="brand-sub">食得醒 · 郁得多</span></div></div>
+    <div class="top-right">
+    <span class="updated num" title="最後更新日期">Updated : ${APP_UPDATED}</span>
     <div class="top-act">
       <button class="icon-btn" data-act="hide" aria-pressed="${S.hide}" aria-label="${S.hide ? "顯示個人資料" : "隱藏個人資料"}" title="${S.hide ? "個人資料已隱藏" : "個人資料顯示中"}">${ic(S.hide ? "eyeoff" : "eye")}</button>
       <span class="streak" title="連續記錄日數">${ic("flame")}${streak()}</span>
+    </div>
     </div>`;
 }
 const TABS = [["home","主頁","home"],["water","飲水","drop"],["progress","進度","trend"],["export","匯出","sheet"],["me","個人","user"]];
@@ -885,7 +896,7 @@ function viewExport() {
     </section>
     ${dates.length ? `<section class="card"><div class="lbl">預覽 · 每日總結${dates.length > 31 ? "（顯示最近 31 日）" : ""}</div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>攝取</th><th>運動</th><th>淨攝取</th><th>剩餘</th><th>蛋白質</th><th>飲水</th></tr></thead><tbody>${rows}</tbody></table></div></section>` : ""}
-    <p class="note">Excel 入面「淨攝取」同「剩餘」係公式，改咗數字會自動重新計。個人資料預設唔會匯出。${PLATFORM === "android" ? "檔案會儲存喺手機「下載／食郁記」資料夾。" : ""}</p>
+    <p class="note">Excel 入面「淨攝取」同「剩餘」係公式，改咗數字會自動重新計。個人資料預設唔會匯出。${PLATFORM === "android" ? "檔案會儲存喺手機「下載／Healthy KyoFai」資料夾。" : ""}</p>
   </div>`;
 }
 function viewMe() {
@@ -936,7 +947,7 @@ function viewMe() {
       <p class="note">AI 分析只會傳送食物相片同你寫嘅補充，唔會傳送個人資料。${PLATFORM === "claude" ? "每次分析會用你自己嘅 Claude 用量。" : ""}</p>
     </section>
     ${aiCard}${backupCard}
-    <p class="ver">食郁記 v${APP_VER} · ${PLATFORM === "android" ? "Android" : PLATFORM === "claude" ? "Claude" : "網頁版"}</p>
+    <p class="ver">Healthy KyoFai v${APP_VER} · Updated ${APP_UPDATED} · ${PLATFORM === "android" ? "Android" : PLATFORM === "claude" ? "Claude" : "網頁版"}</p>
   </div>`;
 }
 const VIEWS = {home:viewHome, water:viewWater, progress:viewProgress, export:viewExport, me:viewMe};
@@ -1322,7 +1333,7 @@ async function exportXlsx(mode) {
     let photos = {};
     if (e.photos) { try { photos = await Store.photosFor(from, to); } catch (err) { photos = {}; } }
     const X = window.ExcelJS, wb = new X.Workbook();
-    wb.creator = "食郁記"; wb.created = new Date();
+    wb.creator = "Healthy KyoFai"; wb.created = new Date();
     const AMBER = "FFF2B04F", INK = "FF2B1D07", LINE = "FFD9D0C2", ZEBRA = "FFFBF7F0";
     const border = {top:{style:"thin", color:{argb:LINE}}, bottom:{style:"thin", color:{argb:LINE}}, left:{style:"thin", color:{argb:LINE}}, right:{style:"thin", color:{argb:LINE}}};
     const xd = s => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
@@ -1350,7 +1361,7 @@ async function exportXlsx(mode) {
     const h1 = ["日期","星期","攝取 kcal","運動消耗 kcal","淨攝取 kcal","每日目標 kcal","剩餘 kcal","蛋白質 g","碳水 g","脂肪 g","飲水 ml","餐數"];
     const w1 = [12,7,11,13,12,13,11,10,9,9,10,7];
     if (e.personal) { h1.push("體重 kg"); w1.push(10); }
-    titleRows(s1, "食郁記 · 每日總結", h1.length); headerRow(s1, 3, h1, w1);
+    titleRows(s1, "Healthy KyoFai · 每日總結", h1.length); headerRow(s1, 3, h1, w1);
     dates.forEach((d, i) => {
       const r = 4 + i, t = totals(S.days[d]), tgt = P ? P.target : null;
       const vals = [xd(d), WD[parseYmd(d).getDay()], r0(t.kcal), r0(t.ex), {formula:`C${r}-D${r}`, result:r0(t.kcal - t.ex)},
@@ -1377,7 +1388,7 @@ async function exportXlsx(mode) {
     const s2 = wb.addWorksheet("飲食記錄", {views:[{state:"frozen", ySplit:3}]});
     const h2 = ["日期","時間","餐別","食物","明細","kcal","蛋白質 g","碳水 g","脂肪 g","來源"]; const w2 = [12,8,8,22,38,9,10,9,9,9];
     if (e.photos) { h2.push("相片"); w2.push(14); }
-    titleRows(s2, "食郁記 · 飲食記錄", h2.length); headerRow(s2, 3, h2, w2);
+    titleRows(s2, "Healthy KyoFai · 飲食記錄", h2.length); headerRow(s2, 3, h2, w2);
     let r2 = 4; const imgQueue = [];
     dates.forEach(d => (S.days[d].meals || []).slice().sort((a, b) => (a.time || "") < (b.time || "") ? -1 : 1).forEach(m => {
       const detail = (m.items || []).map(it => `${it.name}${it.portion ? `（${it.portion}）` : ""} ${r0(it.kcal)}kcal`).join("\n");
@@ -1402,7 +1413,7 @@ async function exportXlsx(mode) {
 
     /* 3. exercise */
     const s3 = wb.addWorksheet("運動記錄", {views:[{state:"frozen", ySplit:3}]});
-    const h3 = ["日期","時間","運動","分鐘","MET","消耗 kcal","來源"]; titleRows(s3, "食郁記 · 運動記錄", h3.length); headerRow(s3, 3, h3, [12,8,18,8,7,11,10]);
+    const h3 = ["日期","時間","運動","分鐘","MET","消耗 kcal","來源"]; titleRows(s3, "Healthy KyoFai · 運動記錄", h3.length); headerRow(s3, 3, h3, [12,8,18,8,7,11,10]);
     let r3 = 4;
     dates.forEach(d => (S.days[d].ex || []).forEach(x => { s3.getRow(r3).values = [xd(d), x.time || "", x.name || "", r0(x.min), x.met || null, r0(x.kcal), x.src || ""]; r3++; }));
     if (r3 > 4) {
@@ -1414,12 +1425,12 @@ async function exportXlsx(mode) {
     if (e.personal && S.profile) {
       const p = S.profile, hm = (+p.heightCm / 100);
       const s4 = wb.addWorksheet("體重記錄", {views:[{state:"frozen", ySplit:3}]});
-      titleRows(s4, "食郁記 · 體重記錄", 4); headerRow(s4, 3, ["日期","體重 kg","BMI","變化 kg"], [12,10,8,10]);
+      titleRows(s4, "Healthy KyoFai · 體重記錄", 4); headerRow(s4, 3, ["日期","體重 kg","BMI","變化 kg"], [12,10,8,10]);
       const wi = weighIns().filter(x => x.d >= from && x.d <= to);
       wi.forEach((x, i) => { const r = 4 + i; s4.getRow(r).values = [xd(x.d), x.w, {formula:`ROUND(B${r}/${hm}^2,1)`, result:r1(x.w / (hm*hm))}, i ? {formula:`B${r}-B${r - 1}`, result:r1(x.w - wi[i - 1].w)} : null]; });
       if (wi.length) { styleBody(s4, 4, 3 + wi.length, 4); s4.getColumn(1).numFmt = "yyyy-mm-dd"; s4.getColumn(2).numFmt = "0.0"; s4.getColumn(4).numFmt = "+0.0;[Red]-0.0;0.0"; }
       const s5 = wb.addWorksheet("個人資料");
-      titleRows(s5, "食郁記 · 個人資料同每日計劃", 2); headerRow(s5, 3, ["項目","數值"], [18,26]);
+      titleRows(s5, "Healthy KyoFai · 個人資料同每日計劃", 2); headerRow(s5, 3, ["項目","數值"], [18,26]);
       const rows = [["性別", p.sex === "F" ? "女" : "男"], ["年齡", +p.age], ["身高 cm", +p.heightCm], ["起始體重 kg", +p.startKg], ["而家體重 kg", P ? r1(P.w) : null], ["目標體重 kg", p.goalKg || null],
         ["活動量", P ? `${P.act.l}（×${P.act.v}）` : ""], ["減重速度", P && P.losing ? `每週 ${P.pace} kg` : "維持"], ["BMR kcal", P?.bmr], ["TDEE kcal", P?.tdee], ["每日目標 kcal", P?.target],
         ["蛋白質目標 g", P?.protein], ["碳水目標 g", P?.carbs], ["脂肪目標 g", P?.fat], ["飲水目標 ml", P?.water], ["預計達標", P?.eta || "—"]];
@@ -1429,11 +1440,11 @@ async function exportXlsx(mode) {
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-    const fname = `食郁記_${from.replace(/-/g, "")}-${to.replace(/-/g, "")}.xlsx`;
+    const fname = `HealthyKyoFai_${from.replace(/-/g, "")}-${to.replace(/-/g, "")}.xlsx`;
     if (mode === "share") { await shareBlob(blob, fname, blob.type); e.msg = "已開啟分享選單。"; }
     else {
       const res = await S.dl.save({filename:fname, data:blob});
-      e.msg = res && res.where === "device" ? (res.status === "shared" ? "已開啟分享選單，揀「儲存」或者傳俾自己。" : `已儲存到「下載／食郁記」：${fname}`) : `已匯出 ${dates.length} 日記錄。`;
+      e.msg = res && res.where === "device" ? (res.status === "shared" ? "已開啟分享選單，揀「儲存」或者傳俾自己。" : `已儲存到「下載／Healthy KyoFai」：${fname}`) : `已匯出 ${dates.length} 日記錄。`;
     }
   } catch (err) {
     const c = err && err.code;
@@ -1449,14 +1460,14 @@ async function backupNow() {
   try { const got = await Store.photosFor("0000-01-01", "9999-12-31"); const dates = {}; for (const d in S.days) (S.days[d].meals || []).forEach(m => { dates[m.id] = d; }); for (const id in got) photos[id] = {date:dates[id] || "", img:got[id]}; } catch (e) { photos = {}; }
   const body = JSON.stringify({app:"shikyuk", v:1, exported:new Date().toISOString(), profile:S.profile, days:S.days, favs:S.favs, photos});
   try {
-    const res = await S.dl.save({filename:`食郁記_備份_${today().replace(/-/g, "")}.json`, data:new Blob([body], {type:"application/json"})});
-    toast(res && res.where === "device" ? "備份已儲存到「下載／食郁記」" : "備份已下載");
+    const res = await S.dl.save({filename:`HealthyKyoFai_備份_${today().replace(/-/g, "")}.json`, data:new Blob([body], {type:"application/json"})});
+    toast(res && res.where === "device" ? "備份已儲存到「下載／Healthy KyoFai」" : "備份已下載");
   } catch (e) { if (e && e.code !== "declined") toast("匯出備份失敗"); }
 }
 function restoreFrom(text) {
   let b;
   try { b = JSON.parse(text); } catch (e) { toast("讀唔到呢個檔案"); return; }
-  if (!b || b.app !== "shikyuk" || typeof b.days !== "object") { toast("呢個唔係食郁記嘅備份檔"); return; }
+  if (!b || b.app !== "shikyuk" || typeof b.days !== "object") { toast("呢個唔係 Healthy KyoFai 嘅備份檔"); return; }
   const changed = new Set(); let nDays = 0;
   if (b.profile && +b.profile.heightCm > 0) S.profile = b.profile;
   for (const [d, raw] of Object.entries(b.days || {})) {
