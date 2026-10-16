@@ -45,7 +45,7 @@
 - `www/index.html` 係成個 app（單一檔案，連 `www/vendor/exceljs.min.js`）。改完 push 去 `main`：
   - **Build Android APK** workflow 會將 `www/` 包入 WebView app，build 好簽名 APK 再發佈到 Releases。
   - **Deploy web version** workflow 會將 `www/` 發佈到 GitHub Pages。
-- APK 用 repo secrets 入面嘅 release key 簽名（`SIGNING_KEYSTORE_BASE64`、`SIGNING_STORE_PASSWORD`、`SIGNING_KEY_ALIAS`、`SIGNING_KEY_PASSWORD`）。冇咗呢組 key，新 APK 就唔可以覆蓋安裝。
+- APK 用 repo secret `SIGNING_KEYSTORE_BASE64`（release keystore 嘅 base64）簽名。冇咗呢個 secret，每次 build 會用臨時 key，新 APK 就唔可以覆蓋安裝舊版。
 - Android 部分：`android/`（Java、minSdk 26、targetSdk 34），只用 `androidx.webkit` 同 `androidx.core`。
 
 ## 計算方法
