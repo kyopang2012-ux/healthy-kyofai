@@ -1,0 +1,62 @@
+plugins {
+    id 'com.android.application'
+}
+
+// CI passes the run number so every build installs over the previous one.
+def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+// Release signing comes from GitHub Secrets (see .github/workflows/android.yml).
+// Keeping one key means updates install over the old app and keep your records.
+def keystorePath = System.getenv("SIGNING_KEYSTORE_PATH")
+
+android {
+    namespace 'hk.kyo.shikyuk'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "hk.kyo.shikyuk"
+        minSdk 26
+        targetSdk 34
+        versionCode runNumber
+        versionName "1.1.${runNumber}"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystorePath ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // The web app in /www is the app's UI; it is packaged as-is into the APK.
+    sourceSets {
+        main {
+            assets.srcDir '../../www'
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.13.1'
+}

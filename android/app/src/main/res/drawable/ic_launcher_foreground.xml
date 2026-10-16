@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bowl with chopsticks inside an amber ring, kept within the 66dp adaptive-icon safe zone -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#F2B04F"
+        android:strokeWidth="4.8"
+        android:pathData="M28,54a26,26 0 1,0 52,0a26,26 0 1,0 -52,0" />
+    <path
+        android:fillColor="#F2B04F"
+        android:pathData="M38.95,54h30.1a15.05,15.05 0 0,1 -30.1,0z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#F5EFE6"
+        android:strokeWidth="3.3"
+        android:strokeLineCap="round"
+        android:pathData="M56.74,34.16L64.26,51.26M64.26,32.8L70.42,50.58" />
+</vector>

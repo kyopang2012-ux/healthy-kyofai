@@ -1,0 +1,1620 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>食郁記</title>
+<meta name="description" content="記錄每日飲食同運動：影相俾 AI 估卡路里、MET 計運動消耗、飲水、體重進度，一鍵匯出 Excel。">
+<meta name="theme-color" content="#15120f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="食郁記">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='10' fill='%2315120f'/%3E%3Ccircle cx='22' cy='22' r='16' fill='none' stroke='%23f2b04f' stroke-width='3.5'/%3E%3Cpath d='M12 22h20a10 10 0 0 1-20 0z' fill='%23f2b04f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700;900&family=Urbanist:wght@500;600;700;800&display=swap">
+<script defer src="vendor/exceljs.min.js" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';document.head.appendChild(s);"></script>
+<style>
+/* Layout: one phone-width column, cards on warm charcoal, fixed tab bar; amber = eating, teal = moving */
+:root{
+  --bg:#15120f;
+  --surface:#221e1a;
+  --surface-2:#2c2823;
+  --line:#3a342d;
+  --track:#35302a;
+  --fg:#f5efe6;
+  --muted:#a89f92;
+  --dim:#736b60;
+  --amber:#f2b04f;
+  --amber-ink:#2b1d07;
+  --amber-soft:rgba(242,176,79,.14);
+  --teal:#7fb5ab;
+  --teal-ink:#0e2421;
+  --teal-soft:rgba(127,181,171,.15);
+  --water:#79b4d9;
+  --protein:#e58b7c;
+  --carbs:#dcb86b;
+  --fat:#9fc8bf;
+  --bad:#ec7b68;
+  --good:#9ccf86;
+  --font-num:"Urbanist","Noto Sans HK","PingFang HK",system-ui,sans-serif;
+  --font-body:"Noto Sans HK","PingFang HK","Microsoft JhengHei",system-ui,sans-serif;
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);margin:0}
+html{padding-top:env(safe-area-inset-top, 0px)}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:8px}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+.app{max-width:560px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:10px calc(104px + env(safe-area-inset-bottom, 0px))}
+svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:6px 14px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand svg{width:42px;height:42px}
+.brand-name{font-weight:900;font-size:26px;letter-spacing:.04em}
+.brand-sub{display:block;font-size:11.5px;color:var(--dim);font-weight:500;letter-spacing:.12em;margin-top:-4px}
+.top-act{display:flex;align-items:center;gap:8px}
+.icon-btn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.icon-btn[aria-pressed="false"]{color:var(--amber);border-color:rgba(242,176,79,.45)}
+.streak{display:flex;align-items:center;gap:6px;height:42px;padding:0 14px;border-radius:21px;background:var(--surface);border:1px solid var(--line);color:var(--amber);font-family:var(--font-num);font-weight:700;font-size:18px}
+.streak svg{width:18px;height:18px}
+
+/* cards & text */
+.card{background:var(--surface);border-radius:var(--r-lg);padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+h2.sec{font-size:20px;font-weight:900;margin:8px 0 0;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+h2.sec small{font-size:13px;font-weight:500;color:var(--dim)}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+.amber{color:var(--amber)}
+.teal{color:var(--teal)}
+.note{font-size:13px;color:var(--muted);margin:0;line-height:1.6}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;padding:4px 11px;border-radius:999px;background:var(--surface-2);color:var(--muted);letter-spacing:.02em}
+.tag svg{width:14px;height:14px}
+.tag-teal{background:var(--teal-soft);color:var(--teal)}
+.tag-amber{background:var(--amber-soft);color:var(--amber)}
+.masked{letter-spacing:.12em;color:var(--dim)}
+
+/* week strip */
+.week{display:grid;grid-template-columns:28px 1fr 28px;align-items:center;gap:2px;background:var(--surface);border-radius:var(--r-lg);padding:10px 4px}
+.wk-nav{height:56px;display:grid;place-items:center;color:var(--dim);border-radius:10px}
+.wk-nav:disabled{opacity:.25;cursor:default}
+.wk-days{display:grid;grid-template-columns:repeat(7,1fr)}
+.wk-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;border-radius:12px;color:var(--fg)}
+.wk-day:disabled{opacity:.3;cursor:default}
+.wk-day .wd{font-size:12px;color:var(--dim)}
+.wk-day .dn{font-family:var(--font-num);font-weight:700;font-size:18px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center}
+.wk-day.sel .dn{background:var(--amber);color:var(--amber-ink)}
+.wk-day.today:not(.sel) .dn{box-shadow:inset 0 0 0 1.5px var(--amber)}
+.wk-day .dot{width:5px;height:5px;border-radius:50%;background:transparent}
+.wk-day.has .dot{background:var(--amber)}
+
+/* calorie card */
+.cal-main{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cal-text{min-width:0}
+.hero{font-family:var(--font-num);font-weight:800;font-size:58px;line-height:1;letter-spacing:-.01em;margin-top:12px}
+.hero.over{color:var(--bad)}
+.cal-lbl{color:var(--muted);font-size:15px;margin-top:4px}
+.cal-eq{margin-top:10px;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.cal-eq b{font-weight:700}
+.ring-wrap{position:relative;flex:none;display:grid;place-items:center}
+.ring-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.ring-in svg{width:26px;height:26px;color:var(--amber)}
+.ring-in .num{font-weight:700;font-size:15px;color:var(--muted)}
+.cal-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.mini{background:var(--surface-2);border-radius:var(--r-sm);padding:9px 10px;text-align:center;font-size:13px;color:var(--muted)}
+.mini b{color:var(--fg);font-family:var(--font-num);font-size:17px;margin:0 2px}
+.empty-cal{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+
+/* macros */
+.macros{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mac{background:var(--surface);border-radius:var(--r-md);padding:14px 6px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.mac .ring-in svg{width:20px;height:20px}
+.mac-l{font-size:13px;color:var(--muted)}
+.mac-v{font-size:13px;color:var(--dim)}
+.mac-v b{font-family:var(--font-num);font-size:19px;color:var(--fg);font-weight:700}
+
+/* buttons */
+.cta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--r-md);padding:14px 16px;font-weight:900;font-size:16px;letter-spacing:.02em;transition:transform .12s ease,filter .12s ease}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.big{min-height:64px;font-size:18px;border-radius:18px}
+.btn.amber{background:var(--amber);color:var(--amber-ink)}
+.btn.teal{background:var(--teal);color:var(--teal-ink)}
+.btn.ghost{background:var(--surface-2);color:var(--fg)}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid rgba(236,123,104,.4)}
+.btn.block{width:100%}
+.link{color:var(--amber);font-weight:700;font-size:14px;padding:6px 0}
+
+/* log entries */
+.log{display:flex;flex-direction:column;gap:8px}
+.entry{display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center;background:var(--surface);border-radius:var(--r-md);padding:10px 14px 10px 10px;text-align:left;width:100%}
+.thumb{width:56px;height:56px;border-radius:12px;background:var(--surface-2);overflow:hidden;display:grid;place-items:center;color:var(--amber);font-size:24px}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.ex{background:var(--teal-soft);border-radius:50%}
+.e-body{min-width:0}
+.e-top{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim)}
+.e-src{font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--surface-2);color:var(--muted)}
+.e-name{font-weight:700;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e-mac{font-size:12.5px;color:var(--muted)}
+.e-kcal{text-align:right;font-weight:700;font-size:20px;line-height:1.1}
+.e-kcal small{display:block;font-size:11.5px;color:var(--dim);font-weight:600}
+.e-kcal.ex{color:var(--teal)}
+.empty{background:var(--surface);border-radius:var(--r-md);padding:22px 18px;color:var(--muted);font-size:14px;line-height:1.7;border:1px dashed var(--line)}
+
+/* bottom nav */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(26,23,19,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));padding-left:max(8px, env(safe-area-inset-left, 0px));padding-right:max(8px, env(safe-area-inset-right, 0px))}
+.nav-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--dim);font-size:12.5px;font-weight:700;padding:2px 0}
+.tab .pill{width:58px;height:32px;border-radius:16px;display:grid;place-items:center}
+.tab.on{color:var(--amber)}
+.tab.on .pill{background:var(--amber-soft)}
+
+/* sheet */
+.overlay{position:fixed;inset:0;z-index:40;background:rgba(8,6,4,.62);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:600px;max-height:92%;overflow-y:auto;overscroll-behavior:contain;background:#1b1815;border-radius:26px 26px 0 0;padding-top:10px;padding-bottom:calc(22px + env(safe-area-inset-bottom, 0px));padding-left:max(18px, env(safe-area-inset-left, 0px));padding-right:max(18px, env(safe-area-inset-right, 0px));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 10px}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+.sh-head h3{margin:0;font-size:26px;font-weight:900}
+.sh-sub{font-size:13px;color:var(--dim);margin-bottom:14px}
+.sh-body{display:flex;flex-direction:column;gap:14px}
+.lbl{font-size:14px;color:var(--muted);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:7px 14px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:14px;font-weight:700}
+.chip.on{background:var(--amber);color:var(--amber-ink)}
+.pick-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pick{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:118px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);cursor:pointer;text-align:center;padding:12px}
+.pick svg.ic{width:34px;height:34px;color:var(--amber)}
+.pick span{font-weight:900;font-size:18px}
+.pick small{font-size:12px;color:var(--dim)}
+.pick.wide{grid-column:1/-1;min-height:70px;flex-direction:row;gap:12px}
+.pick.wide svg.ic{width:26px;height:26px}
+.preview{width:100%;max-width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--r-md);display:block;background:var(--surface)}
+.preview.sm{aspect-ratio:16/7}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.in{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;font-size:15px;min-width:0}
+.in:focus{border-color:var(--amber);outline:none}
+textarea.in{resize:vertical;min-height:84px;line-height:1.6}
+select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(-45deg,transparent 50%,var(--muted) 50%);background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:34px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.items-h{display:flex;align-items:center;justify-content:space-between}
+.item{background:var(--surface);border-radius:var(--r-md);padding:10px;display:flex;flex-direction:column;gap:8px}
+.item-top{display:grid;grid-template-columns:1fr 110px 34px;gap:8px;align-items:center}
+.item-top .in{padding:9px 10px}
+.x{width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:var(--muted);display:grid;place-items:center}
+.x svg{width:16px;height:16px}
+.item-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.item-nums label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--dim);min-width:0}
+.item-nums .in{padding:8px 6px;text-align:center;font-family:var(--font-num);font-weight:700}
+.tot{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px;background:var(--amber-soft);border-radius:var(--r-md);padding:12px}
+.tot div{display:flex;flex-direction:column;align-items:center;font-size:11.5px;color:var(--muted)}
+.tot b{font-family:var(--font-num);font-size:18px;color:var(--fg)}
+.tot div:first-child b{color:var(--amber);font-size:24px}
+.ai-note{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border-radius:var(--r-md);padding:12px;font-size:13.5px;color:var(--muted);line-height:1.6}
+.ai-note svg{color:var(--amber);width:18px;height:18px;margin-top:2px}
+.ai-note b{color:var(--fg)}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-radius:var(--r-md);padding:14px 16px;font-size:15px;cursor:pointer}
+.switch-row span{display:flex;align-items:center;gap:8px}
+.switch-row span svg{width:18px;height:18px;color:var(--bad)}
+.switch{appearance:none;-webkit-appearance:none;width:52px;height:30px;border-radius:15px;background:var(--surface-2);border:2px solid var(--line);position:relative;flex:none;cursor:pointer;transition:background .15s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--fg);transition:transform .15s}
+.switch:checked{background:var(--amber);border-color:var(--amber)}
+.switch:checked::after{transform:translateX(22px);background:var(--amber-ink)}
+.busy{display:flex;flex-direction:column;gap:12px;align-items:stretch;background:var(--surface);border-radius:var(--r-md);padding:16px}
+.busy p{margin:0;font-size:14px;color:var(--muted)}
+.bar{height:6px;border-radius:3px;background:var(--track);overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;width:40%;border-radius:3px;background:var(--amber);animation:slide 1.3s ease-in-out infinite}
+@keyframes slide{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
+.err{background:rgba(236,123,104,.12);color:#f3a596;border-radius:var(--r-sm);padding:10px 12px;font-size:13.5px}
+.fav-list{display:flex;flex-direction:column;gap:8px}
+.fav{display:grid;grid-template-columns:1fr auto 34px;gap:10px;align-items:center;background:var(--surface);border-radius:var(--r-md);padding:10px 10px 10px 14px}
+.fav button.main{text-align:left;min-width:0}
+.fav .nm{font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fav .sb{font-size:12.5px;color:var(--dim)}
+
+/* exercise */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--surface);border-radius:999px;padding:5px;gap:4px}
+.seg button{padding:9px 6px;border-radius:999px;font-weight:700;color:var(--muted);font-size:15px}
+.seg button.on{background:var(--amber);color:var(--amber-ink)}
+.ex-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ex-tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px 10px;border-radius:var(--r-md);background:var(--surface);font-weight:700;font-size:14px}
+.ex-tile .em{font-size:28px;line-height:1.1}
+.ex-tile.on{background:var(--amber);color:var(--amber-ink)}
+.ex-tile.more{color:var(--amber)}
+.ex-tile.more .em{font-family:var(--font-num);font-weight:500}
+.stepper{display:grid;grid-template-columns:56px 1fr 56px;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r-lg);padding:12px}
+.stepper button{width:56px;height:56px;border-radius:50%;background:var(--surface-2);font-size:26px;font-weight:700;font-family:var(--font-num)}
+.stepper .mid{display:flex;flex-direction:column;align-items:center}
+.stepper input{width:100%;max-width:140px;text-align:center;background:transparent;border:0;font-size:46px;font-weight:800;padding:0;font-family:var(--font-num)}
+.stepper input:focus{outline:none;color:var(--amber)}
+.stepper span{font-size:13px;color:var(--muted)}
+.est{background:linear-gradient(160deg,rgba(242,176,79,.16),rgba(242,176,79,.05));border-radius:var(--r-lg);padding:16px 18px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 12px}
+.est-l{width:100%;color:var(--amber);font-weight:700;font-size:15px}
+.est-n{font-size:15px;color:var(--amber)}
+.est-n b{font-size:46px;font-weight:800;line-height:1}
+.est-f{font-size:12.5px;color:rgba(242,176,79,.7)}
+
+/* water */
+.water-hero{display:grid;grid-template-columns:110px 1fr;gap:20px;align-items:center}
+.glass{position:relative;width:96px;height:170px;margin:0 auto;border:3px solid rgba(121,180,217,.55);border-top-width:0;border-radius:6px 6px 26px 26px;overflow:hidden;background:rgba(121,180,217,.06)}
+.glass i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(121,180,217,.9),rgba(84,146,190,.95));transition:height .5s ease}
+.glass i::before{content:"";position:absolute;left:-10%;right:-10%;top:-5px;height:10px;border-radius:50%;background:rgba(170,212,238,.9)}
+.glass .lv{position:absolute;inset:auto 0 8px;text-align:center;font-family:var(--font-num);font-weight:800;font-size:18px;color:#0c1b26;mix-blend-mode:normal}
+.w-big{font-family:var(--font-num);font-weight:800;font-size:44px;line-height:1;color:var(--water)}
+.w-sub{color:var(--muted);font-size:14px;margin-top:4px}
+.w-left{margin-top:12px;font-size:14px}
+.wbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.wbtn{background:var(--surface);border-radius:var(--r-md);padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:700}
+.wbtn b{font-family:var(--font-num);font-size:22px;color:var(--water)}
+.wbtn small{font-size:12px;color:var(--dim);font-weight:500}
+.wrow{display:flex;gap:10px}
+.wrow .in{flex:1}
+
+/* progress */
+.wt-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.wt-big{font-family:var(--font-num);font-weight:800;font-size:64px;line-height:1;margin-top:10px}
+.wt-big small{font-size:22px;color:var(--muted);font-weight:600;margin-left:4px}
+.track{height:10px;border-radius:5px;background:var(--track);margin-top:18px;overflow:hidden}
+.track i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),#f6c97f);border-radius:5px}
+.ends{display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--dim)}
+.ends b{display:block;font-family:var(--font-num);font-size:18px;color:var(--fg);font-weight:700}
+.ends div:last-child{text-align:right}
+.eta{display:flex;justify-content:space-between;margin-top:10px;color:var(--muted);font-size:14px}
+.eta b{font-family:var(--font-num);color:var(--fg);font-size:18px}
+.weigh{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:16px}
+.chart-wrap{margin-top:12px;overflow-x:auto}
+.chart-wrap svg{display:block;width:100%;height:auto;min-width:300px}
+.chart-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:40px 10px;color:var(--dim);font-size:14px;text-align:center}
+.chart-empty svg{width:44px;height:44px;color:var(--line)}
+.segs{display:inline-grid;grid-auto-flow:column;background:var(--surface-2);border-radius:999px;padding:4px;gap:2px}
+.segs button{padding:6px 14px;border-radius:999px;font-family:var(--font-num);font-weight:700;color:var(--muted);font-size:14px}
+.segs button.on{background:var(--amber);color:var(--amber-ink)}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.stat{background:var(--surface-2);border-radius:var(--r-sm);padding:10px;text-align:center}
+.stat b{display:block;font-family:var(--font-num);font-size:20px}
+.stat span{font-size:12px;color:var(--dim)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--dim);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* export */
+.tbl-wrap{overflow-x:auto;margin-top:12px;border-radius:var(--r-sm)}
+table.tbl{border-collapse:collapse;width:100%;font-size:13px;min-width:420px}
+.tbl th{font-weight:700;color:var(--muted);text-align:right;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:12px}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td{padding:8px;text-align:right;border-bottom:1px solid rgba(58,52,45,.6);font-family:var(--font-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl td.neg{color:var(--bad)}
+.sheets{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sheets span{font-size:12px;padding:4px 10px;border-radius:8px;background:var(--surface-2);color:var(--muted)}
+.sheets span.off{opacity:.4;text-decoration:line-through}
+.msg{font-size:13.5px;color:var(--muted);min-height:1.5em}
+
+/* profile */
+.kv{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.kv div{background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px}
+.kv div>span{display:block;font-size:12px;color:var(--dim)}
+.kv b{font-family:var(--font-num);font-size:20px;font-weight:700}
+.kv b small{font-size:13px;color:var(--muted);font-weight:500;margin-left:2px}
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.plan-grid div{background:var(--surface-2);border-radius:var(--r-sm);padding:10px;text-align:center}
+.plan-grid span{display:block;font-size:12px;color:var(--dim)}
+.plan-grid b{font-family:var(--font-num);font-size:19px}
+.status-line{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.status-line i{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+.status-line i.ok{background:var(--good)}
+.status-line i.warn{background:var(--amber)}
+.ver{font-size:12px;color:var(--dim);text-align:center;margin-top:6px}
+
+.btnrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.btnrow .btn{padding:12px 8px;font-size:14.5px}
+.ai-ok{font-size:13px;color:var(--good)}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--bg);font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;max-width:calc(100% - 32px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+
+@media (max-width:380px){
+  .hero{font-size:48px}
+  .ex-grid{grid-template-columns:repeat(3,1fr)}
+  .item-top{grid-template-columns:1fr 84px 34px}
+  .wt-big{font-size:54px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top" id="top"></header>
+  <main id="main"></main>
+</div>
+<nav class="nav" aria-label="主要分頁"><div class="nav-in" id="nav"></div></nav>
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="記錄"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (s, n) => { const d = parseYmd(s); d.setDate(d.getDate()+n); return ymd(d); };
+const diffDays = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 864e5);
+const today = () => ymd(new Date());
+const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const WD = ["日","一","二","三","四","五","六"];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const r0 = n => Math.round(Number(n) || 0);
+const r1 = n => Math.round((Number(n) || 0) * 10) / 10;
+const fmt = n => r0(n).toLocaleString("en-US");
+const clone = v => JSON.parse(JSON.stringify(v));
+const md = s => { const d = parseYmd(s); return `${d.getMonth()+1}/${d.getDate()}`; };
+const dateLabel = s => s === today() ? "今日" : s === addDays(today(), -1) ? "尋日" : (() => { const d = parseYmd(s); return `${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）`; })();
+
+const LS = {
+  get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+const K_LOCAL = "skj.local.v1", K_PH = "skj.photos.v1", K_CACHE = "skj.cache.v1", K_HIDE = "skj.hide", K_AI = "skj.ai.v1";
+const APP_VER = "1.1";
+
+/* ---------- platform: Claude artifact, Android app, or plain web ---------- */
+const BRIDGE = (window.AndroidBridge && typeof window.AndroidBridge.saveFile === "function") ? window.AndroidBridge : null;
+const IN_CLAUDE = !!(window.claude && typeof window.claude.use === "function");
+const PLATFORM = BRIDGE ? "android" : IN_CLAUDE ? "claude" : "web";
+const AI_MODELS = [
+  {v:"claude-sonnet-5-5", l:"Claude Sonnet 5.5（較準，建議）"},
+  {v:"claude-haiku-5-5", l:"Claude Haiku 5.5（較快、較平）"},
+];
+const aiCfg = () => { const c = LS.get(K_AI) || {}; return {key:String(c.key || ""), model:AI_MODELS.some(m => m.v === c.model) ? c.model : AI_MODELS[0].v}; };
+const blobToB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] || ""); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+function parseJsonLoose(t) {
+  try { return JSON.parse(t); } catch (e) {}
+  const m = /```(?:json)?\s*([\s\S]*?)```/.exec(t);
+  if (m) { try { return JSON.parse(m[1]); } catch (e) {} }
+  const a = t.search(/[\[{]/), b = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
+  return undefined;
+}
+/* Same call shape as the artifact `sample` capability, backed by the person's own Anthropic API key. */
+function makeApiAi(cfg) {
+  const call = async (prompt, opts = {}) => {
+    const content = [];
+    for (const b of (opts.images || [])) if (b) content.push({type:"image", source:{type:"base64", media_type:"image/jpeg", data:await blobToB64(b)}});
+    content.push({type:"text", text:prompt});
+    let res;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST", signal:opts.signal,
+        headers:{"content-type":"application/json", "x-api-key":cfg.key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:cfg.model, max_tokens:4096, messages:[{role:"user", content}]}),
+      });
+    } catch (e) { throw {code:e && e.name === "AbortError" ? "cancelled" : "network", message:String(e && e.message || e)}; }
+    if (!res.ok) {
+      let msg = ""; try { const j = await res.json(); msg = j && j.error && j.error.message || ""; } catch (e) {}
+      const s = res.status;
+      throw {code:s === 401 || s === 403 ? "auth" : s === 429 ? "rate_limited" : s === 400 || s === 404 ? "bad_request" : s >= 500 ? "overloaded" : "upstream_error", message:msg, status:s};
+    }
+    const j = await res.json();
+    if (j.stop_reason === "refusal") throw {code:"refused"};
+    const text = (j.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+    if (!text) throw {code:"empty_completion"};
+    return text;
+  };
+  const ai = async (p, o) => ({text:await call(p, o), truncated:false});
+  ai.json = async (p, o) => { const t = await call(p, o); const v = parseJsonLoose(t); if (v === undefined) throw {code:"invalid_json", text:t}; return v; };
+  ai.limits = async () => ({maxPromptBytes:262144, images:{maxCount:5}});
+  ai.kind = "api";
+  return ai;
+}
+/* File saving outside Claude: Android bridge writes to Downloads; browsers get a normal download. */
+const webDownloads = {
+  async save({filename, data}) {
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const mime = /\.xlsx$/i.test(filename) ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : /\.json$/i.test(filename) ? "application/json" : (blob.type || "application/octet-stream");
+    if (BRIDGE) {
+      const r = String(BRIDGE.saveFile(await blobToB64(blob), filename, mime) || "");
+      if (r.startsWith("error")) throw {code:"unavailable", message:r};
+      return {status:r === "shared" ? "shared" : "saved", where:"device"};
+    }
+    const url = URL.createObjectURL(new Blob([blob], {type:mime}));
+    const a = document.createElement("a"); a.href = url; a.download = filename; a.rel = "noopener";
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
+    return {status:"saved", where:"browser"};
+  },
+};
+async function shareBlob(blob, filename, mime) {
+  if (!BRIDGE || typeof BRIDGE.shareFile !== "function") throw {code:"unavailable"};
+  BRIDGE.shareFile(await blobToB64(blob), filename, mime);
+}
+
+/* ---------- icons ---------- */
+const P_ICONS = {
+  home:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+  drop:'<path d="M12 3s6.5 7 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 10 12 3 12 3z"/>',
+  trend:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  sheet:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.6-4 4.6-6 8-6s6.4 2 8 6"/>',
+  camera:'<path d="M4 8h3.2l1.8-3h6l1.8 3H20v12H4z"/><circle cx="12" cy="13.5" r="3.6"/>',
+  image:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-10 9"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+  bookmark:'<path d="M6 3h12v18l-6-4.5L6 21z"/>',
+  pencil:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  pulse:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.1 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.1-1.6"/><path d="M4 4l16 16"/>',
+  flame:'<path d="M12 3c.8 3.2 5.5 5.2 5.5 10.5A5.5 5.5 0 0 1 6.5 13.5c0-2.2 1-3.8 2.2-4.8.1 2 1 3.2 2.3 3.4-.4-3 .1-6 1-9.1z"/>',
+  close:'<path d="M6 6l12 12M18 6L6 18"/>',
+  left:'<path d="M15 5l-7 7 7 7"/>',
+  right:'<path d="M9 5l7 7-7 7"/>',
+  spark:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
+  scale:'<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a5 5 0 0 1 7 0"/><path d="M12 10l1.5-1.5"/>',
+  shield:'<path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+};
+const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P_ICONS[n]}</svg>`;
+const LOGO = `<svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#f2b04f" stroke-width="3.5"/><path d="M11 22h22a11 11 0 0 1-22 0z" fill="#f2b04f"/><path d="M24 7.5l5.5 12.5M29.5 6.5l4.5 13" stroke="#f5efe6" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+
+/* ---------- reference data ---------- */
+const MEALS = ["早餐","午餐","下午茶","晚餐","宵夜","小食"];
+const mealByTime = (hm = nowHM()) => { const [h, m] = hm.split(":").map(Number); const t = h + m/60; return t < 10.5 ? "早餐" : t < 14.5 ? "午餐" : t < 17.5 ? "下午茶" : t < 21.5 ? "晚餐" : "宵夜"; };
+const EX = [
+  {k:"run", name:"跑步", icon:"🏃", met:9.8},
+  {k:"walk", name:"急步行", icon:"🚶", met:4.3},
+  {k:"gym", name:"重訓", icon:"🏋️", met:5.0},
+  {k:"swim", name:"游水", icon:"🏊", met:6.0},
+  {k:"bike", name:"踩單車", icon:"🚴", met:6.8},
+  {k:"hike", name:"行山", icon:"⛰️", met:6.0},
+  {k:"yoga", name:"瑜伽", icon:"🧘", met:2.5},
+];
+const EX_MORE = [
+  {k:"badminton", name:"羽毛球", icon:"🏸", met:5.5},
+  {k:"basketball", name:"籃球", icon:"🏀", met:6.5},
+  {k:"football", name:"足球", icon:"⚽", met:7.0},
+  {k:"tennis", name:"網球", icon:"🎾", met:7.3},
+  {k:"pingpong", name:"乒乓波", icon:"🏓", met:4.0},
+  {k:"rope", name:"跳繩", icon:"🪢", met:11.8},
+  {k:"hiit", name:"HIIT", icon:"🔥", met:8.0},
+  {k:"stairs", name:"行樓梯", icon:"🪜", met:8.0},
+  {k:"row", name:"划艇機", icon:"🚣", met:7.0},
+  {k:"dance", name:"跳舞", icon:"💃", met:5.0},
+  {k:"taichi", name:"太極", icon:"☯️", met:3.0},
+  {k:"stretch", name:"拉筋", icon:"🤸", met:2.3},
+];
+const ALL_EX = [...EX, ...EX_MORE];
+const exType = k => ALL_EX.find(e => e.k === k);
+const ACTS = [
+  {v:1.2, l:"坐定定", d:"大部分時間坐住，少運動"},
+  {v:1.375, l:"輕度活動", d:"每週運動 1–3 次"},
+  {v:1.55, l:"中度活動", d:"每週運動 3–5 次"},
+  {v:1.725, l:"好活躍", d:"每週運動 6–7 次"},
+  {v:1.9, l:"非常活躍", d:"體力勞動加訓練"},
+];
+const PACES = [{v:0, l:"維持體重"},{v:0.25, l:"每週減 0.25 kg（溫和）"},{v:0.5, l:"每週減 0.5 kg（建議）"},{v:0.75, l:"每週減 0.75 kg（進取）"}];
+
+/* ---------- state ---------- */
+const S = {
+  tab:"home", date:today(), weekOffset:0,
+  profile:null, days:{}, favs:{foods:[], ex:[]}, photos:{}, photoLoaded:{},
+  hide:true, mode:"loading", ready:false,
+  ai:null, aiImages:false, dl:null,
+  wRange:"90D",
+  exp:{range:"7", from:addDays(today(), -6), to:today(), photos:true, personal:false, busy:false, msg:""},
+  sheet:null, food:null, exs:null, prof:null,
+  pendingRender:false, aiMsg:"",
+};
+const normFavs = f => ({foods: Array.isArray(f?.foods) ? f.foods : [], ex: Array.isArray(f?.ex) ? f.ex : []});
+const emptyDay = d => ({date:d, meals:[], ex:[], water:0, weight:null});
+const getDay = d => (S.days[d] ||= emptyDay(d));
+const hasLog = d => { const x = S.days[d]; return !!(x && ((x.meals && x.meals.length) || (x.ex && x.ex.length))); };
+function totals(d) {
+  const t = {kcal:0, p:0, c:0, f:0, ex:0, water:0, n:0};
+  if (!d) return t;
+  (d.meals || []).forEach(m => { t.kcal += +m.kcal || 0; t.p += +m.p || 0; t.c += +m.c || 0; t.f += +m.f || 0; t.n++; });
+  (d.ex || []).forEach(e => { t.ex += +e.kcal || 0; });
+  t.water = +d.water || 0;
+  return t;
+}
+function weighIns() {
+  return Object.values(S.days).filter(d => d && +d.weight > 0).map(d => ({d:d.date, w:+d.weight})).sort((a, b) => a.d < b.d ? -1 : 1);
+}
+function curWeight() { const w = weighIns(); return w.length ? w[w.length - 1].w : (+S.profile?.startKg || null); }
+function plan() {
+  const p = S.profile;
+  if (!p || !+p.heightCm || !+p.age || !+p.startKg) return null;
+  const w = curWeight();
+  const h = +p.heightCm;
+  const bmr = r0(10*w + 6.25*h - 5*(+p.age) + (p.sex === "F" ? -161 : 5));
+  const act = ACTS.find(a => a.v === +p.activity) || ACTS[0];
+  const tdee = r0(bmr * act.v);
+  const goal = +p.goalKg || 0;
+  const losing = goal > 0 && goal < w - 0.05;
+  const pace = losing ? (+p.pace || 0) : 0;
+  const floor = p.sex === "F" ? 1200 : 1500;
+  const target = Math.max(tdee - r0(pace * 7700 / 7), floor);
+  const protein = r0(Math.min(1.4 * w, 180));
+  const fat = r0(target * 0.27 / 9);
+  const carbs = Math.max(0, r0((target - protein*4 - fat*9) / 4));
+  const water = +p.waterMl > 0 ? +p.waterMl : Math.round(w * 35 / 50) * 50;
+  const bmi = w / Math.pow(h/100, 2);
+  const eta = losing && pace > 0 ? addDays(today(), Math.ceil((w - goal) / pace * 7)) : null;
+  return {w, h, bmr, tdee, target, protein, fat, carbs, water, bmi, act, pace, goal, losing, eta, start:+p.startKg};
+}
+function streak() {
+  let n = 0, d = today();
+  if (!hasLog(d)) d = addDays(d, -1);
+  while (hasLog(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+const H = (v, unit = "") => S.hide ? `<span class="masked">••</span>` : `${v}${unit}`;
+
+/* ---------- storage ---------- */
+const Store = {
+  mode:"local", db:null, chains:{}, timers:{},
+  persistLocal() {
+    if (!LS.set(K_LOCAL, {profile:S.profile, days:S.days, favs:S.favs})) toast("呢部裝置嘅儲存空間唔夠");
+  },
+  cache() { if (this.mode === "cloud") LS.set(K_CACHE, {profile:S.profile, days:S.days, favs:S.favs}); },
+  write(path, body) {
+    const ref = this.db.doc(path);
+    const run = () => ref.set(body).catch(e => dbErr(e));
+    this.chains[path] = (this.chains[path] || Promise.resolve()).then(run);
+    return this.chains[path];
+  },
+  saveDay(date) {
+    if (this.mode !== "cloud") { this.persistLocal(); return; }
+    clearTimeout(this.timers[date]);
+    this.timers[date] = setTimeout(() => { delete this.timers[date]; if (S.days[date]) this.write("days/" + date, clone(S.days[date])); }, 450);
+    this.cache();
+  },
+  saveProfile() { if (this.mode !== "cloud") return this.persistLocal(); this.write("app/profile", clone(S.profile)); this.cache(); },
+  saveFavs() { if (this.mode !== "cloud") return this.persistLocal(); this.write("app/favs", clone(S.favs)); this.cache(); },
+  savePhoto(id, date, img) {
+    if (this.mode !== "cloud") {
+      const ph = LS.get(K_PH) || {}; ph[id] = {date, img};
+      if (!LS.set(K_PH, ph)) toast("裝置空間唔夠，相片冇儲存到");
+      return;
+    }
+    this.write("photos/" + id, {date, img});
+  },
+  savePhotosBulk(map) {
+    if (this.mode !== "cloud") {
+      const ph = LS.get(K_PH) || {}; Object.assign(ph, map);
+      if (!LS.set(K_PH, ph)) toast("裝置空間唔夠，部分相片冇還原到");
+      return;
+    }
+    for (const id in map) this.write("photos/" + id, map[id]);
+  },
+  deletePhoto(id) {
+    if (this.mode !== "cloud") { const ph = LS.get(K_PH) || {}; delete ph[id]; LS.set(K_PH, ph); return; }
+    this.db.doc("photos/" + id).delete().catch(dbErr);
+  },
+  async photosFor(from, to) {
+    const out = {};
+    if (this.mode !== "cloud") {
+      const ph = LS.get(K_PH) || {};
+      for (const id in ph) if (ph[id].date >= from && ph[id].date <= to) out[id] = ph[id].img;
+      return out;
+    }
+    const snap = await this.db.collection("photos").where("date", ">=", from).where("date", "<=", to).limit(1000).get();
+    snap.docs.forEach(d => { const v = d.data(); if (v && v.img) out[d.id] = v.img; });
+    return out;
+  },
+  async initCloud(db) {
+    this.db = db; this.mode = "cloud";
+    const [pf, fv] = await Promise.all([db.doc("app/profile").get(), db.doc("app/favs").get()]);
+    S.profile = pf.exists ? clone(pf.data()) : null;
+    S.favs = normFavs(fv.exists ? clone(fv.data()) : null);
+    await new Promise(res => {
+      let first = true;
+      db.collection("days").orderBy("date", "desc").limit(1000).onSnapshot(snap => {
+        const m = {};
+        snap.docs.forEach(d => { const v = d.data(); if (v && v.date) m[v.date] = clone(v); });
+        for (const k in this.timers) if (S.days[k]) m[k] = S.days[k];
+        S.days = m; this.cache(); render();
+        if (first) { first = false; res(); }
+      }, e => { dbErr(e); if (first) { first = false; res(); } });
+    });
+  },
+};
+function dbErr(e) {
+  const c = e && e.code;
+  if (c === "quota_exceeded") toast("雲端空間滿咗，刪走部分舊相片先");
+  else if (c === "invalid_argument") toast("冇權限儲存：只有擁有者先可以寫入");
+  else if (c === "revoked") toast("存取權已收回，記錄未必儲存到");
+  else if (c === "resource_exhausted") toast("操作太密，慢少少再試");
+  else toast("同步唔到，稍後再試");
+}
+async function ensurePhotos(date) {
+  if (S.photoLoaded[date] || S.mode === "loading") return;
+  S.photoLoaded[date] = true;
+  try {
+    const got = await Store.photosFor(date, date);
+    Object.assign(S.photos, got);
+    if (Object.keys(got).length) render();
+  } catch (e) { S.photoLoaded[date] = false; }
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+/* ---------- rings & charts ---------- */
+function ring(frac, size, stroke, color) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac || 0));
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--track)" stroke-width="${stroke}"/>
+    ${f > 0 ? `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${(c*(1-f)).toFixed(2)}" transform="rotate(-90 ${size/2} ${size/2})"/>` : ""}
+  </svg>`;
+}
+function niceTicks(min, max, n = 4) {
+  const span = max - min || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => s >= raw) || raw;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step, out = [];
+  for (let v = lo; v <= hi + 1e-9; v += step) out.push(Math.round(v * 100) / 100);
+  return out;
+}
+function weightChart(pts, goal) {
+  const W = 340, Hh = 190, L = S.hide ? 12 : 38, R = 14, T = 16, B = 26;
+  const ws = pts.map(p => p.w).concat(goal ? [goal] : []);
+  const ticks = niceTicks(Math.min(...ws) - 0.4, Math.max(...ws) + 0.4, 4);
+  const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const t0 = parseYmd(pts[0].d).getTime(), t1 = parseYmd(pts[pts.length - 1].d).getTime(), ts = (t1 - t0) || 1;
+  const X = d => L + (parseYmd(d).getTime() - t0) / ts * (W - L - R);
+  const Y = w => T + (1 - (w - y0) / (y1 - y0)) * (Hh - T - B);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${X(p.d).toFixed(1)},${Y(p.w).toFixed(1)}`).join("");
+  const area = `${line}L${X(pts[pts.length-1].d).toFixed(1)},${Hh-B}L${X(pts[0].d).toFixed(1)},${Hh-B}Z`;
+  const last = pts[pts.length - 1];
+  let g = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="體重走勢圖"><defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2b04f" stop-opacity=".28"/><stop offset="1" stop-color="#f2b04f" stop-opacity="0"/></linearGradient></defs>`;
+  ticks.forEach(v => {
+    g += `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    if (!S.hide) g += `<text x="${L-6}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--dim)" font-family="Urbanist,sans-serif">${v}</text>`;
+  });
+  if (goal && goal >= y0 && goal <= y1) {
+    g += `<line x1="${L}" x2="${W-R}" y1="${Y(goal).toFixed(1)}" y2="${Y(goal).toFixed(1)}" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+    g += `<text x="${W-R}" y="${(Y(goal)-6).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--teal)" font-weight="700">目標</text>`;
+  }
+  g += `<path d="${area}" fill="url(#wg)"/><path d="${line}" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  pts.forEach(p => { g += `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.w).toFixed(1)}" r="2.6" fill="var(--amber)"/>`; });
+  g += `<circle cx="${X(last.d).toFixed(1)}" cy="${Y(last.w).toFixed(1)}" r="6" fill="var(--bg)" stroke="var(--amber)" stroke-width="3"/>`;
+  if (!S.hide) {
+    const lx = Math.min(X(last.d), W - R - 22);
+    g += `<text x="${lx.toFixed(1)}" y="${(Y(last.w) - 12).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)" font-family="Urbanist,sans-serif">${last.w}</text>`;
+  }
+  g += `<text x="${L}" y="${Hh-6}" font-size="11" fill="var(--dim)" font-family="Urbanist,sans-serif">${md(pts[0].d)}</text>`;
+  g += `<text x="${W-R}" y="${Hh-6}" text-anchor="end" font-size="11" fill="var(--dim)" font-family="Urbanist,sans-serif">${md(last.d)}</text>`;
+  return g + `</svg>`;
+}
+function barChart(days, valFn, limit, color, overColor) {
+  const W = 340, Hh = 170, L = 6, R = 6, T = 22, B = 24;
+  const vals = days.map(valFn);
+  const max = Math.max(limit || 0, ...vals, 1) * 1.08;
+  const bw = (W - L - R) / days.length, Y = v => T + (1 - v / max) * (Hh - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="最近 7 日">`;
+  g += `<line x1="${L}" x2="${W-R}" y1="${Hh-B}" y2="${Hh-B}" stroke="var(--line)"/>`;
+  days.forEach((d, i) => {
+    const v = vals[i], x = L + i * bw + bw * 0.2, w = bw * 0.6, y = Y(v);
+    const col = limit && v > limit ? overColor : color;
+    if (v > 0) g += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${(Hh-B-y).toFixed(1)}" rx="5" fill="${col}"/>`;
+    else g += `<rect x="${x.toFixed(1)}" y="${(Hh-B-3).toFixed(1)}" width="${w.toFixed(1)}" height="3" rx="1.5" fill="var(--track)"/>`;
+    if (v > 0) g += `<text x="${(x+w/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--muted)" font-family="Urbanist,sans-serif">${v >= 10000 ? (v/1000).toFixed(1)+"k" : fmt(v)}</text>`;
+    g += `<text x="${(x+w/2).toFixed(1)}" y="${Hh-7}" text-anchor="middle" font-size="11.5" fill="${d === S.date ? "var(--amber)" : "var(--dim)"}" font-weight="${d === S.date ? 700 : 500}">${WD[parseYmd(d).getDay()]}</text>`;
+  });
+  if (limit) g += `<line x1="${L}" x2="${W-R}" y1="${Y(limit).toFixed(1)}" y2="${Y(limit).toFixed(1)}" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+  return g + `</svg>`;
+}
+
+/* ---------- header & nav ---------- */
+function renderTop() {
+  $("#top").innerHTML = `
+    <div class="brand">${LOGO}<div><span class="brand-name">食郁記</span><span class="brand-sub">食得醒 · 郁得多</span></div></div>
+    <div class="top-act">
+      <button class="icon-btn" data-act="hide" aria-pressed="${S.hide}" aria-label="${S.hide ? "顯示個人資料" : "隱藏個人資料"}" title="${S.hide ? "個人資料已隱藏" : "個人資料顯示中"}">${ic(S.hide ? "eyeoff" : "eye")}</button>
+      <span class="streak" title="連續記錄日數">${ic("flame")}${streak()}</span>
+    </div>`;
+}
+const TABS = [["home","主頁","home"],["water","飲水","drop"],["progress","進度","trend"],["export","匯出","sheet"],["me","個人","user"]];
+function renderNav() {
+  $("#nav").innerHTML = TABS.map(([k, l, i]) => `<button class="tab ${S.tab === k ? "on" : ""}" data-act="tab" data-t="${k}" aria-current="${S.tab === k ? "page" : "false"}"><span class="pill">${ic(i)}</span>${l}</button>`).join("");
+}
+
+/* ---------- views ---------- */
+function weekStrip() {
+  const end = addDays(today(), S.weekOffset * 7), t = today();
+  let days = "";
+  for (let i = 6; i >= 0; i--) {
+    const d = addDays(end, -i), dt = parseYmd(d);
+    days += `<button class="wk-day ${d === S.date ? "sel" : ""} ${d === t ? "today" : ""} ${hasLog(d) ? "has" : ""}" data-act="day" data-d="${d}" ${d > t ? "disabled" : ""} aria-label="${dateLabel(d)}"><span class="wd">${WD[dt.getDay()]}</span><span class="dn">${dt.getDate()}</span><span class="dot"></span></button>`;
+  }
+  return `<section class="week"><button class="wk-nav" data-act="wk" data-d="-1" aria-label="上一週">${ic("left")}</button><div class="wk-days">${days}</div><button class="wk-nav" data-act="wk" data-d="1" aria-label="下一週" ${S.weekOffset >= 0 ? "disabled" : ""}>${ic("right")}</button></section>`;
+}
+function viewHome() {
+  const P = plan(), d = S.days[S.date], t = totals(d);
+  let cal;
+  if (S.mode === "loading" && !P) {
+    cal = `<section class="card"><div class="empty-cal"><span class="tag">載入緊你嘅記錄…</span><div class="hero num dim">—</div></div></section>`;
+  } else if (!P) {
+    cal = `<section class="card"><div class="empty-cal"><span class="tag tag-amber">${ic("user")} 未有個人資料</span><p class="note">填低性別、年齡、身高同體重，就計到每日卡路里目標同三大營養素。資料只會喺你自己度睇到。</p><button class="btn amber" data-act="editProfile">設定個人資料</button></div></section>`;
+  } else {
+    const budget = P.target + t.ex, remain = budget - t.kcal, frac = t.kcal / budget;
+    cal = `<section class="card">
+      <div class="cal-main">
+        <div class="cal-text">
+          <span class="tag tag-teal">${ic("pulse")} 活動量・${P.act.l}</span>
+          <div class="hero num ${remain < 0 ? "over" : ""}">${fmt(Math.abs(remain))}</div>
+          <div class="cal-lbl">${remain < 0 ? "超咗目標" : "仲剩"} kcal${S.date !== today() ? `・${dateLabel(S.date)}` : ""}</div>
+          <div class="cal-eq num"><span><b class="amber">${fmt(t.kcal)}</b> 食咗</span><span><b class="teal">+${fmt(t.ex)}</b> 運動</span><span><b>${fmt(P.target)}</b> 目標</span></div>
+        </div>
+        <div class="ring-wrap">${ring(frac, 124, 12, frac > 1 ? "var(--bad)" : "var(--amber)")}<div class="ring-in">${ic("flame")}<span class="num">${r0(frac*100)}%</span></div></div>
+      </div>
+      <div class="cal-foot"><div class="mini">BMR <b>${fmt(P.bmr)}</b> kcal</div><div class="mini">TDEE <b>${fmt(P.tdee)}</b> kcal</div></div>
+    </section>`;
+  }
+  const mac = (label, v, goal, color, svg) => `<div class="mac"><div class="ring-wrap">${ring(goal ? v/goal : 0, 64, 7, v > goal * 1.05 && goal ? "var(--bad)" : color)}<div class="ring-in" style="color:${color}">${svg}</div></div><div class="mac-l">${label}</div><div class="mac-v"><b>${r0(v)}</b> / ${goal ? r0(goal) : "—"}g</div></div>`;
+  const macros = `<section class="macros">
+    ${mac("蛋白質", t.p, P?.protein, "var(--protein)", `<svg class="ic" viewBox="0 0 24 24" style="color:var(--protein)"><path d="M15 4a5 5 0 0 1 3 9l-5 5-4-4 5-5"/><path d="M9 14l-4 4m0 0l-1 3 3-1"/></svg>`)}
+    ${mac("碳水", t.c, P?.carbs, "var(--carbs)", `<svg class="ic" viewBox="0 0 24 24" style="color:var(--carbs)"><path d="M12 21V8"/><path d="M12 12c-3 0-4-2-4-4 2 0 4 1 4 4zm0 0c3 0 4-2 4-4-2 0-4 1-4 4zm0-4c-2 0-3-2-3-4 2 0 3 1.5 3 4zm0 0c2 0 3-2 3-4-2 0-3 1.5-3 4z"/></svg>`)}
+    ${mac("脂肪", t.f, P?.fat, "var(--fat)", `<svg class="ic" viewBox="0 0 24 24" style="color:var(--fat)"><path d="M4 14l7-5 9 3v4l-7 4-9-3z"/><path d="M4 14l9 3 7-4"/></svg>`)}
+  </section>`;
+  const cta = `<div class="cta"><button class="btn amber big" data-act="addFood">${ic("camera")}又食嘢？加啦</button><button class="btn teal big" data-act="addEx">${ic("pulse")}做咗運動？</button></div>`;
+  const items = [];
+  (d?.meals || []).forEach(m => items.push({t:m.time || "", kind:"m", v:m}));
+  (d?.ex || []).forEach(e => items.push({t:e.time || "", kind:"e", v:e}));
+  items.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  const log = items.length ? items.map(({kind, v}) => kind === "m" ? `
+    <button class="entry" data-act="editMeal" data-id="${esc(v.id)}">
+      <div class="thumb">${S.photos[v.id] ? `<img src="${S.photos[v.id]}" alt="">` : ic(v.photo ? "image" : "bookmark")}</div>
+      <div class="e-body"><div class="e-top"><span>${esc(v.meal)} · ${esc(v.time)}</span><span class="e-src">${esc(v.src || "手動")}</span></div><div class="e-name">${esc(v.name)}</div><div class="e-mac num">P ${r0(v.p)}g · C ${r0(v.c)}g · F ${r0(v.f)}g</div></div>
+      <div class="e-kcal num">${fmt(v.kcal)}<small>kcal</small></div>
+    </button>` : `
+    <button class="entry" data-act="editEx" data-id="${esc(v.id)}">
+      <div class="thumb ex">${esc(v.icon || "💪")}</div>
+      <div class="e-body"><div class="e-top"><span>運動 · ${esc(v.time)}</span><span class="e-src">${esc(v.src || "MET")}</span></div><div class="e-name">${esc(v.name)}</div><div class="e-mac num">${r0(v.min)} 分鐘${v.met ? ` · MET ${v.met}` : ""}</div></div>
+      <div class="e-kcal ex num">−${fmt(v.kcal)}<small>kcal</small></div>
+    </button>`).join("") : `<div class="empty">${dateLabel(S.date)}仲未有記錄。食咗嘢就撳「又食嘢？加啦」影張相，AI 會幫你估卡路里同營養；做完運動就撳「做咗運動？」。</div>`;
+  return `<div class="stack">${weekStrip()}${cal}${macros}${cta}<h2 class="sec">案底 <small>${dateLabel(S.date)} · ${items.length} 項</small></h2><div class="log">${log}</div></div>`;
+}
+function viewWater() {
+  const P = plan(), d = S.days[S.date], ml = +d?.water || 0, goal = P?.water || 2500;
+  const pct = Math.min(1, ml / goal), left = Math.max(0, goal - ml);
+  const last7 = Array.from({length:7}, (_, i) => addDays(S.date, i - 6));
+  return `<div class="stack">
+    <h2 class="sec">飲水 <small>${dateLabel(S.date)}</small></h2>
+    <section class="card water-hero">
+      <div class="glass" aria-hidden="true"><i style="height:${(pct*100).toFixed(0)}%"></i><span class="lv">${r0(pct*100)}%</span></div>
+      <div>
+        <div class="w-big num">${fmt(ml)}</div>
+        <div class="w-sub num">/ ${fmt(goal)} ml 目標</div>
+        <div class="w-left">${left > 0 ? `仲差 <b class="num">${fmt(left)}</b> ml，大約 <b class="num">${Math.ceil(left/250)}</b> 杯` : `<b class="teal">今日飲夠水 👍</b>`}</div>
+      </div>
+    </section>
+    <div class="wbtns">
+      <button class="wbtn" data-act="water" data-ml="250"><b>+250</b><small>一杯</small></button>
+      <button class="wbtn" data-act="water" data-ml="500"><b>+500</b><small>一樽</small></button>
+      <button class="wbtn" data-act="water" data-ml="750"><b>+750</b><small>大樽</small></button>
+    </div>
+    <div class="wrow"><input class="in num" id="wCustom" type="number" inputmode="numeric" min="0" step="50" placeholder="自訂 ml"><button class="btn ghost" data-act="waterCustom">加</button><button class="btn ghost" data-act="water" data-ml="-250">−250</button></div>
+    <section class="card"><div class="lbl">最近 7 日（ml）</div><div class="chart-wrap">${barChart(last7, x => +S.days[x]?.water || 0, goal, "var(--water)", "var(--water)")}</div>
+      <div class="legend"><span><i style="background:var(--water)"></i>飲水量</span><span><i style="background:var(--teal)"></i>目標</span></div></section>
+    <p class="note">目標按每公斤體重 35 ml 計，可以喺「個人」度自訂。做運動出汗多，記得額外補水。</p>
+  </div>`;
+}
+function viewProgress() {
+  const P = plan();
+  if (!P) return `<div class="stack"><h2 class="sec">你嘅戰績</h2><div class="empty">要先喺「個人」填體重同目標，先睇到進度。<br><button class="link" data-act="editProfile">設定個人資料</button></div></div>`;
+  const wi = weighIns(), last = wi[wi.length - 1];
+  const nextIn = last ? 7 - diffDays(last.d, today()) : 0;
+  const prog = P.goal && P.start > P.goal ? Math.max(0, Math.min(1, (P.start - P.w) / (P.start - P.goal))) : 0;
+  const cut = {"90D":89, "6M":182, "1Y":364, "ALL":99999}[S.wRange];
+  const pts = wi.filter(p => p.d >= addDays(today(), -cut));
+  const weighedToday = last && last.d === today();
+  const chg = last && wi.length > 1 ? r1(last.w - wi[0].w) : 0;
+  const last7 = Array.from({length:7}, (_, i) => addDays(today(), i - 6));
+  const logged = last7.filter(hasLog);
+  const avgIn = logged.length ? r0(logged.reduce((s, d) => s + totals(S.days[d]).kcal, 0) / logged.length) : 0;
+  const avgEx = r0(last7.reduce((s, d) => s + totals(S.days[d]).ex, 0) / 7);
+  return `<div class="stack">
+    <h2 class="sec">你嘅戰績</h2>
+    <section class="card">
+      <div class="wt-top"><span class="lbl">而家幾重</span><span class="tag tag-amber">${weighedToday ? "今日磅咗" : nextIn > 0 ? `仲有 ${nextIn} 日上磅` : "今日要上磅"}</span></div>
+      <div class="wt-big num">${S.hide ? `<span class="masked">••.•</span>` : r1(P.w).toFixed(1)}<small>kg</small></div>
+      <div class="track"><i style="width:${(prog*100).toFixed(1)}%"></i></div>
+      <div class="ends"><div>開始<b>${H(r1(P.start).toFixed(1), " kg")}</b></div><div>目標<b>${P.goal ? H(r1(P.goal).toFixed(1), " kg") : "未設定"}</b></div></div>
+      <div class="eta"><span>預計達標</span><b>${P.eta ? P.eta.replace(/-/g, "/") : "—"}</b></div>
+      <div class="weigh"><input class="in num" id="wIn" type="number" inputmode="decimal" step="0.1" min="30" max="300" placeholder="今日體重 kg" aria-label="今日體重（公斤）"><button class="btn amber" data-act="weigh">${ic("scale")}上磅</button></div>
+    </section>
+    <section class="card">
+      <div class="wt-top"><span class="lbl">體重走勢</span><span class="tag tag-amber">完成 ${r0(prog*100)}%</span></div>
+      <div style="margin-top:12px" class="segs">${["90D","6M","1Y","ALL"].map(k => `<button class="${S.wRange === k ? "on" : ""}" data-act="wRange" data-r="${k}">${k}</button>`).join("")}</div>
+      ${pts.length >= 2 ? `<div class="chart-wrap">${weightChart(pts, P.goal)}</div>` : `<div class="chart-empty">${ic("trend")}數據唔夠，再磅多幾次先<br>建議每星期同一時間（例如朝早起身）上磅</div>`}
+      ${wi.length > 1 ? `<p class="note">由第一次記錄到而家：${S.hide ? "••" : `<b class="num ${chg <= 0 ? "teal" : "amber"}">${chg > 0 ? "+" : ""}${chg.toFixed(1)} kg</b>`}</p>` : ""}
+    </section>
+    <section class="card">
+      <div class="lbl">最近 7 日攝取（kcal）</div>
+      <div class="chart-wrap">${barChart(last7, x => totals(S.days[x]).kcal, P.target, "var(--amber)", "var(--bad)")}</div>
+      <div class="legend"><span><i style="background:var(--amber)"></i>攝取</span><span><i style="background:var(--bad)"></i>超標</span><span><i style="background:var(--teal)"></i>每日目標</span></div>
+      <div class="stats3"><div class="stat"><b>${fmt(avgIn)}</b><span>平均攝取</span></div><div class="stat"><b class="teal">${fmt(avgEx)}</b><span>平均運動</span></div><div class="stat"><b>${logged.length}/7</b><span>有記錄日數</span></div></div>
+    </section>
+  </div>`;
+}
+function exportRange() {
+  const e = S.exp, t = today();
+  if (e.range === "7") return {from:addDays(t, -6), to:t};
+  if (e.range === "30") return {from:addDays(t, -29), to:t};
+  if (e.range === "month") return {from:t.slice(0, 8) + "01", to:t};
+  if (e.range === "all") { const ks = Object.keys(S.days).sort(); return {from:ks[0] || t, to:t}; }
+  let f = e.from || t, to = e.to || t; if (f > to) [f, to] = [to, f];
+  return {from:f, to};
+}
+function viewExport() {
+  const e = S.exp, P = plan(), {from, to} = exportRange();
+  const dates = Object.keys(S.days).filter(d => d >= from && d <= to && (hasLog(d) || +S.days[d].water > 0 || +S.days[d].weight > 0)).sort();
+  const rows = dates.slice(-31).reverse().map(d => {
+    const t = totals(S.days[d]), rem = P ? P.target + t.ex - t.kcal : 0;
+    return `<tr><td>${md(d)}（${WD[parseYmd(d).getDay()]}）</td><td>${fmt(t.kcal)}</td><td>${fmt(t.ex)}</td><td>${fmt(t.kcal - t.ex)}</td><td class="${rem < 0 ? "neg" : ""}">${P ? fmt(rem) : "—"}</td><td>${r0(t.p)}</td><td>${fmt(t.water)}</td></tr>`;
+  }).join("");
+  const nMeals = dates.reduce((s, d) => s + (S.days[d].meals || []).length, 0);
+  const nEx = dates.reduce((s, d) => s + (S.days[d].ex || []).length, 0);
+  const chipsR = [["7","最近 7 日"],["30","最近 30 日"],["month","今個月"],["all","全部"],["custom","自訂"]].map(([k, l]) => `<button class="chip ${e.range === k ? "on" : ""}" data-act="expRange" data-r="${k}">${l}</button>`).join("");
+  return `<div class="stack">
+    <h2 class="sec">匯出 Excel <small>${from.replace(/-/g,"/")} – ${to.replace(/-/g,"/")}</small></h2>
+    <section class="card stack">
+      <div class="chips">${chipsR}</div>
+      ${e.range === "custom" ? `<div class="row2"><label class="field"><span class="lbl">由</span><input class="in" type="date" id="expFrom" value="${e.from}" max="${today()}"></label><label class="field"><span class="lbl">至</span><input class="in" type="date" id="expTo" value="${e.to}" max="${today()}"></label></div>` : ""}
+      <label class="switch-row" for="expPhotos"><span>${ic("image")}包括食物相片</span><input type="checkbox" class="switch" id="expPhotos" ${e.photos ? "checked" : ""}></label>
+      <label class="switch-row" for="expPersonal"><span>${ic("user")}包括個人資料（體重、BMI）</span><input type="checkbox" class="switch" id="expPersonal" ${e.personal ? "checked" : ""}></label>
+      <div class="sheets"><span>每日總結</span><span>飲食記錄 ${nMeals}</span><span>運動記錄 ${nEx}</span><span class="${e.personal ? "" : "off"}">體重記錄</span><span class="${e.personal ? "" : "off"}">個人資料</span></div>
+      <button class="btn amber block big" data-act="export" ${e.busy || !dates.length ? "disabled" : ""}>${ic("sheet")}${e.busy ? "整緊 Excel…" : `匯出 ${dates.length} 日記錄`}</button>
+      ${BRIDGE && typeof BRIDGE.shareFile === "function" ? `<button class="btn ghost block" data-act="exportShare" ${e.busy || !dates.length ? "disabled" : ""}>分享 Excel（WhatsApp、電郵等）</button>` : ""}
+      <div class="msg" id="expMsg" role="status">${esc(e.msg || (!dates.length ? "呢段期間未有記錄。" : !S.dl && S.ready ? "呢個檢視唔支援下載檔案，請喺 Claude app 或者網頁版開。" : ""))}</div>
+    </section>
+    ${dates.length ? `<section class="card"><div class="lbl">預覽 · 每日總結${dates.length > 31 ? "（顯示最近 31 日）" : ""}</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>攝取</th><th>運動</th><th>淨攝取</th><th>剩餘</th><th>蛋白質</th><th>飲水</th></tr></thead><tbody>${rows}</tbody></table></div></section>` : ""}
+    <p class="note">Excel 入面「淨攝取」同「剩餘」係公式，改咗數字會自動重新計。個人資料預設唔會匯出。${PLATFORM === "android" ? "檔案會儲存喺手機「下載／食郁記」資料夾。" : ""}</p>
+  </div>`;
+}
+function viewMe() {
+  const p = S.profile, P = plan();
+  const modeLine = S.mode === "cloud" ? `<div class="status-line"><i class="ok"></i>記錄同步到你嘅 Claude 帳戶，只有你睇到</div>`
+    : S.mode === "local" ? `<div class="status-line"><i class="warn"></i>記錄只儲存喺${PLATFORM === "android" ? "呢部手機" : "呢個瀏覽器"}，記得間中匯出備份</div>` : `<div class="status-line"><i></i>連接緊…</div>`;
+  const aiLine = !S.ready ? "" : S.ai ? `<div class="status-line"><i class="ok"></i>AI 食物分析：${S.aiImages ? "可以分析相片同文字" : "只可以分析文字描述"}</div>` : `<div class="status-line"><i class="warn"></i>AI 分析未開啟，可以手動輸入</div>`;
+  const cfg = aiCfg();
+  const aiCard = PLATFORM === "claude" ? "" : `<section class="card stack" id="aiCard">
+      <div class="lbl">AI 設定（Anthropic API）</div>
+      <label class="field" for="aiKey"><span class="lbl">API key</span><input class="in" id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="${cfg.key ? `已儲存（尾 4 位 ${esc(cfg.key.slice(-4))}），要換先貼新 key` : "sk-ant-…"}"></label>
+      <label class="field" for="aiModel"><span class="lbl">模型</span><select class="in" id="aiModel">${AI_MODELS.map(m => `<option value="${m.v}" ${cfg.model === m.v ? "selected" : ""}>${m.l}</option>`).join("")}</select></label>
+      <div class="btnrow"><button class="btn amber" data-act="aiSave">儲存</button><button class="btn ghost" data-act="aiTest" ${cfg.key ? "" : "disabled"}>測試</button><button class="btn ghost" data-act="aiClear" ${cfg.key ? "" : "disabled"}>刪除 key</button></div>
+      <div class="msg" id="aiMsg" role="status">${esc(S.aiMsg || "")}</div>
+      <p class="note">喺 platform.claude.com 申請 API key，按用量收費，分析一張相通常少過 HK$0.1。Key 只儲存喺${PLATFORM === "android" ? "呢部手機" : "呢個瀏覽器"}，直接連去 Anthropic，唔會經其他伺服器。</p>
+    </section>`;
+  const backupCard = `<section class="card stack">
+      <div class="lbl">備份同還原</div>
+      <p class="note">備份檔（.json）包括所有記錄、相片、收藏同個人資料，唔包括 API key。用嚟喺手機 app 同網頁版之間搬資料，或者換機。還原會合併記錄，唔會刪走現有嘅。</p>
+      <div class="row2"><button class="btn ghost" data-act="backup">匯出備份</button><label class="btn ghost" for="restoreIn" style="cursor:pointer">還原備份</label></div>
+      <input class="vh" type="file" id="restoreIn" accept=".json,application/json">
+    </section>`;
+  return `<div class="stack">
+    <h2 class="sec">個人</h2>
+    <section class="card">
+      <div class="wt-top"><span class="lbl">基本資料</span><button class="tag ${S.hide ? "" : "tag-amber"}" data-act="hide">${ic(S.hide ? "eyeoff" : "eye")}${S.hide ? "已隱藏" : "顯示中"}</button></div>
+      ${p ? `<div class="kv">
+        <div><span>性別</span><b>${S.hide ? `<span class="masked">••</span>` : (p.sex === "F" ? "女" : "男")}</b></div>
+        <div><span>年齡</span><b>${H(p.age)}<small>歲</small></b></div>
+        <div><span>身高</span><b>${H(p.heightCm)}<small>cm</small></b></div>
+        <div><span>而家體重</span><b>${H(r1(P?.w || p.startKg))}<small>kg</small></b></div>
+        <div><span>目標體重</span><b>${p.goalKg ? H(p.goalKg) : "—"}<small>kg</small></b></div>
+        <div><span>BMI</span><b>${P ? H(P.bmi.toFixed(1)) : "—"}</b></div>
+      </div>
+      <button class="btn ghost block" style="margin-top:12px" data-act="editProfile">${ic("pencil")}修改資料</button>`
+      : `<p class="note" style="margin-top:10px">未有個人資料。</p><button class="btn amber block" style="margin-top:12px" data-act="editProfile">設定個人資料</button>`}
+    </section>
+    ${P ? `<section class="card">
+      <div class="lbl">每日計劃</div>
+      <div class="plan-grid"><div><span>BMR</span><b>${fmt(P.bmr)}</b></div><div><span>TDEE</span><b>${fmt(P.tdee)}</b></div><div><span>目標</span><b class="amber">${fmt(P.target)}</b></div>
+        <div><span>蛋白質</span><b>${P.protein}g</b></div><div><span>碳水</span><b>${P.carbs}g</b></div><div><span>脂肪</span><b>${P.fat}g</b></div></div>
+      <p class="note" style="margin-top:12px">活動量：${P.act.l}（×${P.act.v}）· ${P.losing ? `每週減 ${P.pace} kg，每日少食大約 ${fmt(r0(P.pace*7700/7))} kcal` : "維持體重"} · 飲水 ${fmt(P.water)} ml<br>BMR 用 Mifflin-St Jeor 公式；每日目標最低唔會低過 ${p.sex === "F" ? "1,200" : "1,500"} kcal。運動消耗會加返落當日額度。</p>
+    </section>` : ""}
+    <section class="card stack">
+      <div class="lbl">私隱同儲存</div>
+      <div class="status-line">${ic("shield")}<span>右上角嘅眼仔可以隨時收埋所有體重、年齡、身高數字，適合喺課室或者投影時用。</span></div>
+      ${modeLine}${aiLine}
+      <p class="note">AI 分析只會傳送食物相片同你寫嘅補充，唔會傳送個人資料。${PLATFORM === "claude" ? "每次分析會用你自己嘅 Claude 用量。" : ""}</p>
+    </section>
+    ${aiCard}${backupCard}
+    <p class="ver">食郁記 v${APP_VER} · ${PLATFORM === "android" ? "Android" : PLATFORM === "claude" ? "Claude" : "網頁版"}</p>
+  </div>`;
+}
+const VIEWS = {home:viewHome, water:viewWater, progress:viewProgress, export:viewExport, me:viewMe};
+
+function render(force) {
+  const a = document.activeElement;
+  if (!force && a && $("#main").contains(a) && a.matches("input,select,textarea")) { S.pendingRender = true; renderTop(); return; }
+  S.pendingRender = false;
+  renderTop();
+  $("#main").innerHTML = VIEWS[S.tab]();
+  renderNav();
+}
+document.addEventListener("focusout", () => setTimeout(() => { if (S.pendingRender) render(); }, 0));
+
+/* ---------- sheet ---------- */
+function openSheet(kind) { S.sheet = kind; $("#overlay").hidden = false; renderSheet(); $("#sheet").scrollTop = 0; document.body.style.overflow = "hidden"; }
+function closeSheet() {
+  if (S.food?.ctl) try { S.food.ctl.abort(); } catch (e) {}
+  if (S.exs?.ctl) try { S.exs.ctl.abort(); } catch (e) {}
+  S.sheet = null; S.food = null; S.exs = null; S.prof = null;
+  $("#overlay").hidden = true; document.body.style.overflow = "";
+}
+function renderSheet() {
+  const el = $("#sheet");
+  if (S.sheet === "food") el.innerHTML = sheetFood();
+  else if (S.sheet === "ex") el.innerHTML = sheetEx();
+  else if (S.sheet === "profile") el.innerHTML = sheetProfile();
+}
+const head = (title, sub) => `<div class="grab"></div><div class="sh-head"><h3>${title}</h3><button class="icon-btn" data-act="close" aria-label="關閉">${ic("close")}</button></div>${sub ? `<div class="sh-sub">${sub}</div>` : `<div class="sh-sub"></div>`}`;
+const mealChips = sel => `<div class="chips" role="group" aria-label="餐別">${MEALS.map(m => `<button class="chip ${sel === m ? "on" : ""}" data-act="meal" data-m="${m}">${m}</button>`).join("")}</div>`;
+
+/* food sheet */
+function openFood(editId) {
+  if (editId) {
+    const m = (S.days[S.date]?.meals || []).find(x => x.id === editId); if (!m) return;
+    S.food = {step:"edit", editId, meal:m.meal, time:m.time, src:m.src, thumb:S.photos[editId] || null, result:{dish:m.name, items:clone(m.items || []), conf:m.conf || "", tip:m.tip || ""}};
+  } else {
+    const hm = S.date === today() ? nowHM() : "12:30";
+    S.food = {step:"pick", meal:mealByTime(hm), time:hm, src:"手動", result:null};
+  }
+  openSheet("food");
+}
+function sheetFood() {
+  const f = S.food, sub = `記錄喺 ${dateLabel(S.date)}`;
+  const busy = f.busy ? `<div class="busy"><p>${f.busyMsg || "AI 睇緊…"}</p><div class="bar"><i></i></div><button class="btn ghost" data-act="stopAi">停止</button></div>` : "";
+  const err = f.error ? `<div class="err" role="alert">${esc(f.error)}</div>` : "";
+  if (f.step === "pick") {
+    const aiNote = !S.ready ? "" : !S.ai ? (PLATFORM === "claude" ? `<p class="note">AI 分析喺呢個檢視用唔到，相片照樣可以儲存，營養要自己填。</p>` : `<div class="ai-note">${ic("spark")}<div><b>未開啟 AI 分析</b><br>喺「個人 › AI 設定」貼上你嘅 Anthropic API key 就用得。未設定都可以影相同手動輸入。<br><button class="link" data-act="goAi">去設定</button></div></div>`) : !S.aiImages ? `<p class="note">呢個檢視唔可以將相片傳俾 AI，相片照樣儲存，可以用「搜尋」講低食咗乜俾 AI 估。</p>` : "";
+    return head("又食嘢？", sub) + `<div class="sh-body">${mealChips(f.meal)}${err}
+      <div class="pick-grid">
+        <label class="pick" for="fCam">${ic("camera")}<span>影相</span><small>AI 估卡路里</small></label>
+        <label class="pick" for="fLib">${ic("image")}<span>相簿</span><small>揀相上載</small></label>
+        <button class="pick" data-act="fStep" data-s="search">${ic("search")}<span>搜尋</span><small>講低食咗乜</small></button>
+        <button class="pick" data-act="fStep" data-s="favs">${ic("bookmark")}<span>收藏</span><small>${S.favs.foods.length} 樣常食</small></button>
+        <button class="pick wide" data-act="fStep" data-s="manual">${ic("pencil")}<span>手動輸入</span></button>
+      </div>
+      <input class="vh" type="file" id="fCam" accept="image/*" capture="environment">
+      <input class="vh" type="file" id="fLib" accept="image/*">
+      ${aiNote}</div>`;
+  }
+  if (f.step === "photo") {
+    return head("分析相片", sub) + `<div class="sh-body">
+      <img class="preview" src="${f.thumb}" alt="你上載嘅食物相">
+      ${mealChips(f.meal)}
+      <label class="field" for="fNote"><span class="lbl">補充（可選）</span><input class="in" id="fNote" value="${esc(f.note || "")}" placeholder="例如：出前一丁、2 隻煎蛋、凍檸茶少甜" maxlength="120"></label>
+      ${noAiNote()}${err}${busy || `<button class="btn amber block big" data-act="analyse" ${S.ai && S.aiImages ? "" : "disabled"}>${ic("spark")}AI 分析</button>
+      <div class="row2"><button class="btn ghost" data-act="fStep" data-s="pick">換第二張</button><button class="btn ghost" data-act="skipAi">自己填</button></div>`}
+    </div>`;
+  }
+  if (f.step === "search") {
+    return head("講低食咗乜", sub) + `<div class="sh-body">${mealChips(f.meal)}
+      <label class="field" for="fText"><span class="lbl">描述（越具體越準）</span><textarea class="in" id="fText" maxlength="300" placeholder="例如：茶餐廳餐蛋麵＋凍檸茶少甜；或者 7-11 雞胸肉沙律一盒">${esc(f.text || "")}</textarea></label>
+      ${noAiNote()}${err}${busy || `<button class="btn amber block big" data-act="searchAi" ${S.ai ? "" : "disabled"}>${ic("spark")}AI 估算</button>`}
+    </div>`;
+  }
+  if (f.step === "favs") {
+    const list = S.favs.foods.length ? S.favs.foods.map(x => `<div class="fav"><button class="main" data-act="useFav" data-id="${esc(x.id)}"><span class="nm">${esc(x.name)}</span><span class="sb num">P ${r0(x.p)} · C ${r0(x.c)} · F ${r0(x.f)}</span></button><span class="num"><b>${fmt(x.kcal)}</b> <small class="dim">kcal</small></span><button class="x" data-act="rmFav" data-id="${esc(x.id)}" aria-label="移除收藏">${ic("close")}</button></div>`).join("")
+      : `<div class="empty">未有收藏。記錄食物時開啟「加入收藏」，下次一撳就記到。</div>`;
+    return head("收藏", sub) + `<div class="sh-body">${mealChips(f.meal)}<div class="fav-list">${list}</div><button class="link" data-act="fStep" data-s="pick">返回</button></div>`;
+  }
+  /* edit */
+  const r = f.result || {dish:"", items:[], conf:"", tip:""};
+  if (!r.items.length) r.items.push({name:"", portion:"", kcal:0, p:0, c:0, f:0});
+  f.result = r;
+  const tt = sumItems(r.items);
+  return head(f.editId ? "修改記錄" : "確認營養", sub) + `<div class="sh-body">
+    ${f.thumb ? `<img class="preview sm" src="${f.thumb}" alt="食物相片">` : ""}
+    <label class="field" for="fDish"><span class="lbl">名稱</span><input class="in" id="fDish" value="${esc(r.dish)}" placeholder="例如：出前一丁加煎蛋" maxlength="60"></label>
+    ${mealChips(f.meal)}
+    <label class="field" for="fTime"><span class="lbl">時間</span><input class="in" type="time" id="fTime" value="${esc(f.time)}"></label>
+    <div class="items-h"><span class="lbl">食物明細</span><button class="link" data-act="addItem">＋ 加一樣</button></div>
+    <div class="stack" id="fItems" style="gap:8px">${r.items.map(itemRow).join("")}</div>
+    <div class="tot" id="fTot">${totHtml(tt)}</div>
+    ${r.tip ? `<div class="ai-note">${ic("spark")}<div><b>AI 估算 · ${esc(r.conf || "中")}信心</b><br>${esc(r.tip)}</div></div>` : ""}
+    ${f.editId ? "" : `<label class="switch-row" for="fFav"><span>${ic("bookmark")}加入收藏（下次快速記錄）</span><input type="checkbox" class="switch" id="fFav"></label>`}
+    <button class="btn amber block big" data-act="saveMeal">記低佢！</button>
+    ${f.editId ? `<button class="btn danger block" data-act="delMeal">刪除呢個記錄</button>` : ""}
+  </div>`;
+}
+const noAiNote = () => (S.ai || PLATFORM === "claude" || !S.ready) ? "" : `<p class="note">未設定 AI key，可以自己填營養，或者 <button class="link" data-act="goAi">去設定 AI</button></p>`;
+const itemRow = (it, i) => `<div class="item" data-i="${i}">
+  <div class="item-top"><input class="in" id="it-n-${i}" value="${esc(it.name)}" placeholder="食物" aria-label="食物名稱"><input class="in" id="it-o-${i}" value="${esc(it.portion)}" placeholder="份量" aria-label="份量"><button class="x" data-act="rmItem" data-i="${i}" aria-label="刪除呢樣">${ic("close")}</button></div>
+  <div class="item-nums">
+    <label>kcal<input class="in" type="number" inputmode="decimal" min="0" id="it-k-${i}" value="${r0(it.kcal)}"></label>
+    <label>蛋白質 g<input class="in" type="number" inputmode="decimal" min="0" step="0.1" id="it-p-${i}" value="${r1(it.p)}"></label>
+    <label>碳水 g<input class="in" type="number" inputmode="decimal" min="0" step="0.1" id="it-c-${i}" value="${r1(it.c)}"></label>
+    <label>脂肪 g<input class="in" type="number" inputmode="decimal" min="0" step="0.1" id="it-f-${i}" value="${r1(it.f)}"></label>
+  </div></div>`;
+const sumItems = items => items.reduce((s, it) => ({kcal:s.kcal + (+it.kcal || 0), p:s.p + (+it.p || 0), c:s.c + (+it.c || 0), f:s.f + (+it.f || 0)}), {kcal:0, p:0, c:0, f:0});
+const totHtml = t => `<div><b>${fmt(t.kcal)}</b>kcal</div><div><b>${r0(t.p)}</b>蛋白質 g</div><div><b>${r0(t.c)}</b>碳水 g</div><div><b>${r0(t.f)}</b>脂肪 g</div>`;
+function readEdit() {
+  const f = S.food; if (!f || f.step !== "edit") return;
+  const dish = $("#fDish"); if (dish) f.result.dish = dish.value.trim();
+  const tm = $("#fTime"); if (tm && tm.value) f.time = tm.value;
+  f.result.items = f.result.items.map((it, i) => ({
+    name:($("#it-n-" + i)?.value ?? it.name).trim(), portion:($("#it-o-" + i)?.value ?? it.portion).trim(),
+    kcal:r0($("#it-k-" + i)?.value ?? it.kcal), p:r1($("#it-p-" + i)?.value ?? it.p), c:r1($("#it-c-" + i)?.value ?? it.c), f:r1($("#it-f-" + i)?.value ?? it.f),
+  }));
+}
+function normFood(j) {
+  const items = Array.isArray(j?.items) ? j.items : [];
+  return {
+    dish:String(j?.dish || "").slice(0, 60),
+    items:items.slice(0, 12).map(it => ({name:String(it?.name || "食物").slice(0, 40), portion:String(it?.portion || "").slice(0, 30), kcal:r0(it?.kcal), p:r1(it?.protein ?? it?.p), c:r1(it?.carbs ?? it?.c), f:r1(it?.fat ?? it?.f)})),
+    conf:["高","中","低"].includes(j?.confidence) ? j.confidence : "中",
+    tip:String(j?.tip || "").slice(0, 80),
+  };
+}
+const FOOD_FMT = `只回覆一個 JSON 物件，唔好有其他文字：
+{"dish":"整體名稱","items":[{"name":"食物","portion":"份量","kcal":0,"protein":0,"carbs":0,"fat":0}],"confidence":"高","tip":"一句建議"}
+規則：
+- 全部用繁體中文（香港用語）。kcal 用整數；protein、carbs、fat 用克，最多一位小數。
+- 按香港常見份量估算（茶餐廳、快餐店、便利店、大排檔、家常菜），要計埋煮食用油、湯底同醬汁。
+- 每樣分得出嘅食物獨立一行，例如麵、蛋、肉、菜、飲品。
+- confidence 只可以係「高」、「中」或「低」。
+- tip 用廣東話，20 字以內，講營養重點或者一個小改善。`;
+function aiErr(e) {
+  const c = e && e.code;
+  if (c === "cancelled") return "";
+  if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled" || c === "capability_removed") { S.ai = null; return "AI 分析未獲允許或者用唔到，可以撳「自己填」手動輸入。"; }
+  if (c === "images_unavailable") { S.aiImages = false; return "呢個檢視唔可以傳相俾 AI，試下用「搜尋」講低食咗乜。"; }
+  if (c === "rate_limited") return "用得太密或者到咗用量上限，等陣再試。";
+  if (c === "image_rejected") return "AI 讀唔到呢張相，試下用 JPG 或者截圖再上載。";
+  if (c === "refused") return "AI 唔處理呢張相，試下換另一張。";
+  if (c === "invalid_json" || c === "empty_completion") return "AI 回覆格式唔啱，再撳一次試下。";
+  if (c === "session_expired") return "登入過期，請重新登入 Claude。";
+  if (c === "auth") return "API key 唔啱或者已失效，去「個人 › AI 設定」檢查。";
+  if (c === "network") return "連唔到 AI，檢查下網絡再試。";
+  if (c === "overloaded") return "AI 伺服器繁忙，等一陣再試。";
+  if (c === "bad_request") return "AI 請求出錯" + (e.message ? "：" + String(e.message).slice(0, 80) : "，再試一次。");
+  return "連線出咗問題，再試一次。";
+}
+async function runAi(prompt, opts, onOk) {
+  const f = S.food; if (!f || !S.ai) return;
+  f.busy = true; f.error = ""; f.ctl = new AbortController(); renderSheet();
+  try {
+    const j = await S.ai.json(prompt, {...opts, signal:f.ctl.signal});
+    if (S.food !== f) return;
+    onOk(j);
+  } catch (e) { if (S.food !== f) return; f.error = aiErr(e); }
+  f.busy = false; f.ctl = null; renderSheet();
+}
+function analysePhoto() {
+  const f = S.food; f.note = ($("#fNote")?.value || "").trim();
+  f.busyMsg = "AI 睇緊你啲嘢食…（大約 10–40 秒）";
+  const prompt = `你係香港註冊營養師助手。相入面係用戶${f.meal}食嘅嘢。${f.note ? `用戶補充：「${f.note}」。` : ""}睇清楚每樣食物，估計份量同營養。如果相入面冇食物，items 用空陣列，tip 寫「睇唔到食物」。\n\n${FOOD_FMT}`;
+  runAi(prompt, {images:[f.aiBlob], modelTier:"default"}, j => {
+    const r = normFood(j);
+    if (!r.items.length) { f.error = r.tip || "AI 睇唔到食物，試下換張相或者自己填。"; return; }
+    f.result = r; f.src = "AI"; f.step = "edit";
+  });
+}
+function searchAi() {
+  const f = S.food; f.text = ($("#fText")?.value || "").trim();
+  if (!f.text) { f.error = "寫低食咗乜先。"; renderSheet(); return; }
+  f.busyMsg = "AI 估算緊…";
+  const prompt = `你係香港註冊營養師助手。用戶${f.meal}食咗：「${f.text}」。按描述估計每樣食物份量同營養。\n\n${FOOD_FMT}`;
+  runAi(prompt, {modelTier:"quick"}, j => {
+    const r = normFood(j);
+    if (!r.items.length) { f.error = "估唔到，寫具體啲再試。"; return; }
+    f.result = r; f.src = "AI 文字"; f.step = "edit";
+  });
+}
+function loadImg(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { res(img); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("decode")); };
+    img.src = url;
+  });
+}
+function drawScaled(img, max) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+async function handleFoodPhoto(file) {
+  const f = S.food; if (!file || !f) return;
+  f.error = "";
+  try {
+    const img = await loadImg(file);
+    f.thumb = drawScaled(img, 360).toDataURL("image/jpeg", 0.72);
+    f.aiBlob = await new Promise(r => drawScaled(img, 1280).toBlob(r, "image/jpeg", 0.86));
+    f.step = "photo"; f.src = "相片";
+  } catch (e) { f.error = "讀唔到呢張相，試下用 JPG 或者截圖。"; }
+  renderSheet();
+}
+function saveMeal() {
+  readEdit();
+  const f = S.food, r = f.result;
+  const items = r.items.filter(it => it.name || it.kcal > 0);
+  if (!items.length) { toast("最少要有一樣食物"); return; }
+  const t = sumItems(items), d = getDay(S.date), id = f.editId || uid();
+  const meal = {id, time:f.time || nowHM(), meal:f.meal, name:r.dish || items.map(i => i.name).join(" + "), items, kcal:r0(t.kcal), p:r1(t.p), c:r1(t.c), f:r1(t.f), src:f.src || "手動", conf:r.conf || "", tip:r.tip || "", photo:!!f.thumb};
+  if (f.editId) { const i = d.meals.findIndex(m => m.id === id); if (i >= 0) d.meals[i] = meal; }
+  else d.meals.push(meal);
+  if (f.thumb && !f.editId) { S.photos[id] = f.thumb; Store.savePhoto(id, S.date, f.thumb); }
+  if (!f.editId && $("#fFav")?.checked) {
+    S.favs.foods = [{id:uid(), name:meal.name, items:meal.items, kcal:meal.kcal, p:meal.p, c:meal.c, f:meal.f}, ...S.favs.foods.filter(x => x.name !== meal.name)].slice(0, 60);
+    Store.saveFavs();
+  }
+  Store.saveDay(S.date);
+  closeSheet(); render(true);
+  toast(`記低咗：${meal.name} · ${fmt(meal.kcal)} kcal`);
+}
+function delMeal() {
+  const f = S.food, d = S.days[S.date]; if (!d) return;
+  if (!f.confirmDel) { f.confirmDel = true; const b = $('[data-act="delMeal"]'); if (b) b.textContent = "再撳一次確認刪除"; return; }
+  d.meals = d.meals.filter(m => m.id !== f.editId);
+  if (S.photos[f.editId]) { delete S.photos[f.editId]; Store.deletePhoto(f.editId); }
+  Store.saveDay(S.date); closeSheet(); render(true); toast("已刪除");
+}
+
+/* exercise sheet */
+function openEx(editId) {
+  if (editId) {
+    const e = (S.days[S.date]?.ex || []).find(x => x.id === editId); if (!e) return;
+    const known = exType(e.k);
+    S.exs = {editId, tab:known ? "common" : "custom", sel:known ? e.k : "run", min:e.min, more:!!EX_MORE.find(x => x.k === e.k), time:e.time, custom:{name:e.name, min:e.min, kcal:e.kcal}};
+  } else {
+    S.exs = {tab:"common", sel:"run", min:30, more:false, time:S.date === today() ? nowHM() : "18:00", custom:{name:"", min:30, kcal:""}};
+  }
+  openSheet("ex");
+}
+function exKcal(met, min) { const w = curWeight(); return w ? r0(met * w * min / 60) : 0; }
+function exFormula(met, min) { const w = curWeight(); return `MET ${met} × ${S.hide || !w ? "體重" : r1(w) + "kg"} × ${r1(min/60)}hr`; }
+function sheetEx() {
+  const x = S.exs, sub = `記錄喺 ${dateLabel(S.date)}`;
+  const seg = `<div class="seg" role="tablist">${[["common","常用"],["favs","收藏"],["custom","自己嚟"]].map(([k, l]) => `<button role="tab" class="${x.tab === k ? "on" : ""}" data-act="exTab" data-t="${k}">${l}</button>`).join("")}</div>`;
+  const err = x.error ? `<div class="err" role="alert">${esc(x.error)}</div>` : "";
+  const noW = !curWeight() ? `<p class="note">要喺「個人」填體重，先計到消耗。</p>` : "";
+  const timeF = `<label class="field" for="exTime"><span class="lbl">時間</span><input class="in" type="time" id="exTime" value="${esc(x.time)}"></label>`;
+  let body = "";
+  if (x.tab === "common") {
+    const t = exType(x.sel) || EX[0];
+    const tile = e => `<button class="ex-tile ${x.sel === e.k ? "on" : ""}" data-act="exSel" data-k="${e.k}"><span class="em">${e.icon}</span>${e.name}</button>`;
+    body = `<div class="lbl">運動類型</div>
+      <div class="ex-grid">${EX.map(tile).join("")}<button class="ex-tile more" data-act="exMore"><span class="em">${x.more ? "−" : "+"}</span>${x.more ? "收埋" : "更多運動"}</button></div>
+      ${x.more ? `<div class="ex-grid">${EX_MORE.map(tile).join("")}</div>` : ""}
+      <div class="lbl">時間（分鐘）</div>
+      <div class="stepper"><button data-act="exMin" data-d="-5" aria-label="減 5 分鐘">−</button><div class="mid"><input id="exMinIn" type="number" inputmode="numeric" min="1" max="600" value="${x.min}" aria-label="分鐘"><span>分鐘</span></div><button data-act="exMin" data-d="5" aria-label="加 5 分鐘">+</button></div>
+      <div class="est"><div class="est-l">估計消耗</div><div class="est-n num"><b id="exK">${fmt(exKcal(t.met, x.min))}</b> kcal</div><div class="est-f num" id="exF">${exFormula(t.met, x.min)}</div></div>
+      ${noW}${timeF}
+      ${x.editId ? "" : `<label class="switch-row" for="exSave"><span>${ic("bookmark")}儲存呢個運動（下次快速記錄）</span><input type="checkbox" class="switch" id="exSave"></label>`}
+      <button class="btn amber block big" data-act="saveEx" ${curWeight() ? "" : "disabled"}>記低佢！</button>`;
+  } else if (x.tab === "favs") {
+    body = S.favs.ex.length ? `<div class="fav-list">${S.favs.ex.map(e => `<div class="fav"><button class="main" data-act="useFavEx" data-id="${esc(e.id)}"><span class="nm">${esc(e.icon)} ${esc(e.name)}</span><span class="sb num">${r0(e.min)} 分鐘 · 撳一下即記</span></button><span class="num"><b>${fmt(e.met ? exKcal(e.met, e.min) : e.kcal)}</b> <small class="dim">kcal</small></span><button class="x" data-act="rmFavEx" data-id="${esc(e.id)}" aria-label="移除收藏">${ic("close")}</button></div>`).join("")}</div>`
+      : `<div class="empty">未有收藏。喺「常用」記錄時開啟「儲存呢個運動」，下次撳一下就記到。</div>`;
+  } else {
+    const c = x.custom;
+    body = `${S.ai && S.aiImages ? `<label class="pick wide" for="exShot">${ic("spark")}<span>上載運動截圖</span><small>手錶／Strava，AI 讀數</small></label><input class="vh" type="file" id="exShot" accept="image/*">` : ""}
+      ${x.busy ? `<div class="busy"><p>AI 讀緊截圖…</p><div class="bar"><i></i></div><button class="btn ghost" data-act="stopExAi">停止</button></div>` : ""}
+      <label class="field" for="cxName"><span class="lbl">運動名稱</span><input class="in" id="cxName" value="${esc(c.name)}" placeholder="例如：龍舟訓練" maxlength="30"></label>
+      <div class="row2"><label class="field" for="cxMin"><span class="lbl">分鐘</span><input class="in num" id="cxMin" type="number" inputmode="numeric" min="1" value="${esc(c.min)}"></label>
+      <label class="field" for="cxKcal"><span class="lbl">消耗 kcal</span><input class="in num" id="cxKcal" type="number" inputmode="numeric" min="0" value="${esc(c.kcal)}" placeholder="手錶顯示嘅數"></label></div>
+      ${timeF}
+      <button class="btn amber block big" data-act="saveCustomEx">記低佢！</button>`;
+  }
+  return head(x.editId ? "修改運動" : "做咗運動？", sub) + `<div class="sh-body">${x.editId ? "" : seg}${err}${body}${x.editId ? `<button class="btn danger block" data-act="delEx">刪除呢個記錄</button>` : ""}</div>`;
+}
+function readExMin() { const v = r0($("#exMinIn")?.value); if (v > 0) S.exs.min = Math.min(600, v); }
+function readCustom() {
+  const c = S.exs.custom;
+  c.name = ($("#cxName")?.value ?? c.name).trim(); c.min = $("#cxMin")?.value ?? c.min; c.kcal = $("#cxKcal")?.value ?? c.kcal;
+}
+function readExTime() { const t = $("#exTime")?.value; if (t) S.exs.time = t; }
+function pushEx(entry) {
+  const d = getDay(S.date), x = S.exs;
+  if (x && x.editId) { entry.id = x.editId; const i = d.ex.findIndex(e => e.id === x.editId); if (i >= 0) d.ex[i] = entry; else d.ex.push(entry); }
+  else d.ex.push(entry);
+  Store.saveDay(S.date);
+}
+function saveEx() {
+  readExMin(); readExTime();
+  const x = S.exs, t = exType(x.sel), kcal = exKcal(t.met, x.min);
+  if (!kcal) { toast("要先填體重"); return; }
+  const entry = {id:uid(), time:x.time, k:t.k, name:t.name, icon:t.icon, min:x.min, met:t.met, kcal, src:"MET"};
+  pushEx(entry);
+  if (!x.editId && $("#exSave")?.checked) {
+    S.favs.ex = [{id:uid(), k:t.k, name:t.name, icon:t.icon, min:x.min, met:t.met}, ...S.favs.ex.filter(e => !(e.k === t.k && e.min === x.min))].slice(0, 30);
+    Store.saveFavs();
+  }
+  closeSheet(); render(true); toast(`記低咗：${t.name} ${x.min} 分鐘 · ${fmt(kcal)} kcal`);
+}
+function saveCustomEx() {
+  readCustom(); readExTime();
+  const c = S.exs.custom, min = r0(c.min), kcal = r0(c.kcal);
+  if (!c.name || min <= 0 || kcal <= 0) { S.exs.error = "填齊名稱、分鐘同消耗 kcal。"; renderSheet(); return; }
+  pushEx({id:uid(), time:S.exs.time, k:"custom", name:c.name, icon:"💪", min, met:null, kcal, src:S.exs.aiFilled ? "AI 截圖" : "自己嚟"});
+  closeSheet(); render(true); toast(`記低咗：${c.name} · ${fmt(kcal)} kcal`);
+}
+async function exShot(file) {
+  const x = S.exs; if (!file || !x || !S.ai) return;
+  readCustom(); x.error = "";
+  let blob;
+  try { const img = await loadImg(file); blob = await new Promise(r => drawScaled(img, 1400).toBlob(r, "image/jpeg", 0.88)); }
+  catch (e) { x.error = "讀唔到呢張截圖。"; renderSheet(); return; }
+  x.busy = true; x.ctl = new AbortController(); renderSheet();
+  try {
+    const j = await S.ai.json(`呢張係運動記錄截圖（例如智能手錶、Strava、健身 app）。讀出運動資料。只回覆 JSON：{"name":"運動名稱（繁體中文，例如 跑步、踩單車）","minutes":整數,"kcal":整數或null,"distance_km":數字或null}。讀唔到就 name 寫空字串。`, {images:[blob], modelTier:"default", signal:x.ctl.signal});
+    if (S.exs !== x) return;
+    if (!j || !j.name) x.error = "AI 讀唔到運動資料，請自己填。";
+    else {
+      x.custom.name = String(j.name).slice(0, 30) + (j.distance_km ? ` ${r1(j.distance_km)}km` : "");
+      if (+j.minutes > 0) x.custom.min = r0(j.minutes);
+      if (+j.kcal > 0) x.custom.kcal = r0(j.kcal);
+      else if (+j.minutes > 0) x.custom.kcal = exKcal(6, r0(j.minutes)) || "";
+      x.aiFilled = true;
+    }
+  } catch (e) { if (S.exs !== x) return; x.error = aiErr(e); }
+  x.busy = false; x.ctl = null; renderSheet();
+}
+function delEx() {
+  const x = S.exs, d = S.days[S.date]; if (!d) return;
+  if (!x.confirmDel) { x.confirmDel = true; const b = $('[data-act="delEx"]'); if (b) b.textContent = "再撳一次確認刪除"; return; }
+  d.ex = d.ex.filter(e => e.id !== x.editId); Store.saveDay(S.date); closeSheet(); render(true); toast("已刪除");
+}
+
+/* profile sheet */
+function sheetProfile() {
+  const p = S.prof;
+  return head("個人資料", "只會儲存喺你自己度，分享呢個 app 嘅人睇唔到") + `<div class="sh-body">
+    <div class="lbl">性別</div>
+    <div class="seg"><button class="${p.sex !== "F" ? "on" : ""}" data-act="pSex" data-v="M">男</button><button class="${p.sex === "F" ? "on" : ""}" data-act="pSex" data-v="F">女</button></div>
+    <div class="row2">
+      <label class="field" for="pAge"><span class="lbl">年齡</span><input class="in num" id="pAge" type="number" inputmode="numeric" min="12" max="100" value="${esc(p.age)}"></label>
+      <label class="field" for="pH"><span class="lbl">身高 cm</span><input class="in num" id="pH" type="number" inputmode="decimal" min="120" max="230" step="0.5" value="${esc(p.heightCm)}"></label>
+      <label class="field" for="pW"><span class="lbl">起始體重 kg</span><input class="in num" id="pW" type="number" inputmode="decimal" min="30" max="300" step="0.1" value="${esc(p.startKg)}"></label>
+      <label class="field" for="pG"><span class="lbl">目標體重 kg</span><input class="in num" id="pG" type="number" inputmode="decimal" min="30" max="300" step="0.1" value="${esc(p.goalKg || "")}"></label>
+    </div>
+    <label class="field" for="pAct"><span class="lbl">活動量</span><select class="in" id="pAct">${ACTS.map(a => `<option value="${a.v}" ${+p.activity === a.v ? "selected" : ""}>${a.l}：${a.d}</option>`).join("")}</select></label>
+    <label class="field" for="pPace"><span class="lbl">減重速度</span><select class="in" id="pPace">${PACES.map(a => `<option value="${a.v}" ${+p.pace === a.v ? "selected" : ""}>${a.l}</option>`).join("")}</select></label>
+    <label class="field" for="pWater"><span class="lbl">每日飲水目標 ml（留空 = 自動計）</span><input class="in num" id="pWater" type="number" inputmode="numeric" min="0" step="50" value="${+p.waterMl > 0 ? p.waterMl : ""}"></label>
+    ${p.err ? `<div class="err" role="alert">${esc(p.err)}</div>` : ""}
+    <button class="btn amber block big" data-act="saveProfile">儲存</button>
+  </div>`;
+}
+function saveProfile() {
+  const p = S.prof, v = id => $("#" + id)?.value;
+  const age = r0(v("pAge")), h = r1(v("pH")), w = r1(v("pW")), g = r1(v("pG"));
+  if (age < 12 || age > 100) p.err = "年齡要喺 12 至 100 之間。";
+  else if (h < 120 || h > 230) p.err = "身高要喺 120 至 230 cm 之間。";
+  else if (w < 30 || w > 300) p.err = "體重要喺 30 至 300 kg 之間。";
+  else if (g && (g < 30 || g > 300)) p.err = "目標體重唔啱。";
+  else p.err = "";
+  if (p.err) { Object.assign(p, {age:v("pAge"), heightCm:v("pH"), startKg:v("pW"), goalKg:v("pG")}); renderSheet(); return; }
+  S.profile = {sex:p.sex || "M", age, heightCm:h, startKg:w, goalKg:g || null, activity:+v("pAct") || 1.2, pace:+v("pPace") || 0, waterMl:r0(v("pWater")) || 0, startDate:S.profile?.startDate || today()};
+  Store.saveProfile(); closeSheet(); render(true); toast("個人資料已儲存");
+}
+
+/* ---------- Excel export ---------- */
+async function exportXlsx(mode) {
+  const e = S.exp, P = plan(), {from, to} = exportRange();
+  const setMsg = m => { e.msg = m; const el = $("#expMsg"); if (el) el.textContent = m; };
+  if (!S.dl) { setMsg("呢個檢視唔支援下載檔案，請喺 Claude app 或者網頁版開。"); return; }
+  if (!window.ExcelJS) { setMsg("Excel 元件仲載入緊，等幾秒再撳。"); return; }
+  const dates = Object.keys(S.days).filter(d => d >= from && d <= to && (hasLog(d) || +S.days[d].water > 0 || +S.days[d].weight > 0)).sort();
+  if (!dates.length) { setMsg("呢段期間未有記錄。"); return; }
+  e.busy = true; e.msg = ""; render(true);
+  try {
+    let photos = {};
+    if (e.photos) { try { photos = await Store.photosFor(from, to); } catch (err) { photos = {}; } }
+    const X = window.ExcelJS, wb = new X.Workbook();
+    wb.creator = "食郁記"; wb.created = new Date();
+    const AMBER = "FFF2B04F", INK = "FF2B1D07", LINE = "FFD9D0C2", ZEBRA = "FFFBF7F0";
+    const border = {top:{style:"thin", color:{argb:LINE}}, bottom:{style:"thin", color:{argb:LINE}}, left:{style:"thin", color:{argb:LINE}}, right:{style:"thin", color:{argb:LINE}}};
+    const xd = s => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+    const titleRows = (ws, title, ncol) => {
+      ws.mergeCells(1, 1, 1, ncol); ws.mergeCells(2, 1, 2, ncol);
+      const a = ws.getCell(1, 1); a.value = title; a.font = {bold:true, size:15, color:{argb:INK}};
+      const b = ws.getCell(2, 1); b.value = `期間：${from} 至 ${to}　｜　匯出：${today()} ${nowHM()}`; b.font = {size:10, color:{argb:"FF7A7064"}};
+      ws.getRow(1).height = 24;
+    };
+    const headerRow = (ws, r, heads, widths) => {
+      const row = ws.getRow(r); row.values = heads; row.height = 22;
+      row.eachCell(c => { c.font = {bold:true, color:{argb:INK}}; c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:AMBER}}; c.alignment = {vertical:"middle", horizontal:"center", wrapText:true}; c.border = border; });
+      widths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    };
+    const styleBody = (ws, r1_, r2_, ncol) => {
+      for (let r = r1_; r <= r2_; r++) for (let c = 1; c <= ncol; c++) {
+        const cell = ws.getCell(r, c); cell.border = border; cell.alignment = {vertical:"middle", wrapText:true, ...(cell.alignment || {})};
+        if ((r - r1_) % 2 === 1) cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb:ZEBRA}};
+      }
+    };
+    const footStyle = row => row.eachCell(c => { c.font = {bold:true}; c.border = border; c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFF3E6CF"}}; });
+
+    /* 1. daily summary */
+    const s1 = wb.addWorksheet("每日總結", {views:[{state:"frozen", ySplit:3}]});
+    const h1 = ["日期","星期","攝取 kcal","運動消耗 kcal","淨攝取 kcal","每日目標 kcal","剩餘 kcal","蛋白質 g","碳水 g","脂肪 g","飲水 ml","餐數"];
+    const w1 = [12,7,11,13,12,13,11,10,9,9,10,7];
+    if (e.personal) { h1.push("體重 kg"); w1.push(10); }
+    titleRows(s1, "食郁記 · 每日總結", h1.length); headerRow(s1, 3, h1, w1);
+    dates.forEach((d, i) => {
+      const r = 4 + i, t = totals(S.days[d]), tgt = P ? P.target : null;
+      const vals = [xd(d), WD[parseYmd(d).getDay()], r0(t.kcal), r0(t.ex), {formula:`C${r}-D${r}`, result:r0(t.kcal - t.ex)},
+        tgt, tgt != null ? {formula:`F${r}+D${r}-C${r}`, result:tgt + r0(t.ex) - r0(t.kcal)} : null, r1(t.p), r1(t.c), r1(t.f), r0(t.water), t.n];
+      if (e.personal) vals.push(+S.days[d].weight > 0 ? +S.days[d].weight : null);
+      s1.getRow(r).values = vals;
+    });
+    const last1 = 3 + dates.length;
+    styleBody(s1, 4, last1, h1.length);
+    s1.getColumn(1).numFmt = "yyyy-mm-dd";
+    [3,4,5,6,11].forEach(c => { s1.getColumn(c).numFmt = "#,##0"; });
+    s1.getColumn(7).numFmt = "#,##0;[Red]-#,##0";
+    [8,9,10].forEach(c => { s1.getColumn(c).numFmt = "0.0"; });
+    const avg = s1.getRow(last1 + 1);
+    avg.getCell(1).value = "平均"; avg.getCell(2).value = "";
+    ["C","D","E","F","G","H","I","J","K"].forEach((col, i) => { avg.getCell(i + 3).value = {formula:`IFERROR(AVERAGE(${col}4:${col}${last1}),"")`}; });
+    footStyle(avg);
+    const tot = s1.getRow(last1 + 2);
+    tot.getCell(1).value = "總計"; ["C","D","E"].forEach((col, i) => { tot.getCell(i + 3).value = {formula:`SUM(${col}4:${col}${last1})`}; });
+    footStyle(tot);
+    if (P) { const n = s1.getRow(last1 + 4); n.getCell(1).value = `每日目標按而家計劃計（${P.act.l}${P.losing ? `、每週減 ${P.pace} kg` : "、維持"}）。剩餘 = 目標 + 運動 − 攝取，負數即係超標。`; n.getCell(1).font = {size:10, italic:true, color:{argb:"FF7A7064"}}; s1.mergeCells(last1 + 4, 1, last1 + 4, h1.length); }
+
+    /* 2. meals */
+    const s2 = wb.addWorksheet("飲食記錄", {views:[{state:"frozen", ySplit:3}]});
+    const h2 = ["日期","時間","餐別","食物","明細","kcal","蛋白質 g","碳水 g","脂肪 g","來源"]; const w2 = [12,8,8,22,38,9,10,9,9,9];
+    if (e.photos) { h2.push("相片"); w2.push(14); }
+    titleRows(s2, "食郁記 · 飲食記錄", h2.length); headerRow(s2, 3, h2, w2);
+    let r2 = 4; const imgQueue = [];
+    dates.forEach(d => (S.days[d].meals || []).slice().sort((a, b) => (a.time || "") < (b.time || "") ? -1 : 1).forEach(m => {
+      const detail = (m.items || []).map(it => `${it.name}${it.portion ? `（${it.portion}）` : ""} ${r0(it.kcal)}kcal`).join("\n");
+      s2.getRow(r2).values = [xd(d), m.time || "", m.meal || "", m.name || "", detail, r0(m.kcal), r1(m.p), r1(m.c), r1(m.f), m.src || ""];
+      if (e.photos && photos[m.id]) imgQueue.push({r:r2, img:photos[m.id]});
+      r2++;
+    }));
+    const last2 = r2 - 1;
+    if (last2 >= 4) {
+      styleBody(s2, 4, last2, h2.length);
+      s2.getColumn(1).numFmt = "yyyy-mm-dd"; s2.getColumn(6).numFmt = "#,##0"; [7,8,9].forEach(c => { s2.getColumn(c).numFmt = "0.0"; });
+      const ft = s2.getRow(last2 + 1); ft.getCell(1).value = "總計";
+      ["F","G","H","I"].forEach((col, i) => { ft.getCell(i + 6).value = {formula:`SUM(${col}4:${col}${last2})`}; }); footStyle(ft);
+      for (let r = 4; r <= last2; r++) { const lines = String(s2.getCell(r, 5).value || "").split("\n").length; s2.getRow(r).height = Math.max(20, lines * 15); }
+      imgQueue.forEach(({r, img}) => {
+        const m = /^data:image\/(png|jpe?g);base64,/.exec(img); if (!m) return;
+        const id = wb.addImage({base64:img, extension:m[1] === "png" ? "png" : "jpeg"});
+        s2.getRow(r).height = Math.max(s2.getRow(r).height || 0, 66);
+        s2.addImage(id, {tl:{col:10.08, row:r - 1 + 0.06}, ext:{width:82, height:82}, editAs:"oneCell"});
+      });
+    }
+
+    /* 3. exercise */
+    const s3 = wb.addWorksheet("運動記錄", {views:[{state:"frozen", ySplit:3}]});
+    const h3 = ["日期","時間","運動","分鐘","MET","消耗 kcal","來源"]; titleRows(s3, "食郁記 · 運動記錄", h3.length); headerRow(s3, 3, h3, [12,8,18,8,7,11,10]);
+    let r3 = 4;
+    dates.forEach(d => (S.days[d].ex || []).forEach(x => { s3.getRow(r3).values = [xd(d), x.time || "", x.name || "", r0(x.min), x.met || null, r0(x.kcal), x.src || ""]; r3++; }));
+    if (r3 > 4) {
+      styleBody(s3, 4, r3 - 1, h3.length); s3.getColumn(1).numFmt = "yyyy-mm-dd"; s3.getColumn(6).numFmt = "#,##0";
+      const ft = s3.getRow(r3); ft.getCell(1).value = "總計"; ft.getCell(4).value = {formula:`SUM(D4:D${r3 - 1})`}; ft.getCell(6).value = {formula:`SUM(F4:F${r3 - 1})`}; footStyle(ft);
+    }
+
+    /* 4–5. personal (opt-in) */
+    if (e.personal && S.profile) {
+      const p = S.profile, hm = (+p.heightCm / 100);
+      const s4 = wb.addWorksheet("體重記錄", {views:[{state:"frozen", ySplit:3}]});
+      titleRows(s4, "食郁記 · 體重記錄", 4); headerRow(s4, 3, ["日期","體重 kg","BMI","變化 kg"], [12,10,8,10]);
+      const wi = weighIns().filter(x => x.d >= from && x.d <= to);
+      wi.forEach((x, i) => { const r = 4 + i; s4.getRow(r).values = [xd(x.d), x.w, {formula:`ROUND(B${r}/${hm}^2,1)`, result:r1(x.w / (hm*hm))}, i ? {formula:`B${r}-B${r - 1}`, result:r1(x.w - wi[i - 1].w)} : null]; });
+      if (wi.length) { styleBody(s4, 4, 3 + wi.length, 4); s4.getColumn(1).numFmt = "yyyy-mm-dd"; s4.getColumn(2).numFmt = "0.0"; s4.getColumn(4).numFmt = "+0.0;[Red]-0.0;0.0"; }
+      const s5 = wb.addWorksheet("個人資料");
+      titleRows(s5, "食郁記 · 個人資料同每日計劃", 2); headerRow(s5, 3, ["項目","數值"], [18,26]);
+      const rows = [["性別", p.sex === "F" ? "女" : "男"], ["年齡", +p.age], ["身高 cm", +p.heightCm], ["起始體重 kg", +p.startKg], ["而家體重 kg", P ? r1(P.w) : null], ["目標體重 kg", p.goalKg || null],
+        ["活動量", P ? `${P.act.l}（×${P.act.v}）` : ""], ["減重速度", P && P.losing ? `每週 ${P.pace} kg` : "維持"], ["BMR kcal", P?.bmr], ["TDEE kcal", P?.tdee], ["每日目標 kcal", P?.target],
+        ["蛋白質目標 g", P?.protein], ["碳水目標 g", P?.carbs], ["脂肪目標 g", P?.fat], ["飲水目標 ml", P?.water], ["預計達標", P?.eta || "—"]];
+      rows.forEach((v, i) => { s5.getRow(4 + i).values = v; });
+      styleBody(s5, 4, 3 + rows.length, 2);
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const fname = `食郁記_${from.replace(/-/g, "")}-${to.replace(/-/g, "")}.xlsx`;
+    if (mode === "share") { await shareBlob(blob, fname, blob.type); e.msg = "已開啟分享選單。"; }
+    else {
+      const res = await S.dl.save({filename:fname, data:blob});
+      e.msg = res && res.where === "device" ? (res.status === "shared" ? "已開啟分享選單，揀「儲存」或者傳俾自己。" : `已儲存到「下載／食郁記」：${fname}`) : `已匯出 ${dates.length} 日記錄。`;
+    }
+  } catch (err) {
+    const c = err && err.code;
+    e.msg = c === "declined" ? "已取消下載。" : c === "rate_limited" ? "有個下載視窗開緊，處理完再試。" : (c === "rejected_extension" || c === "extension_not_enabled") ? "呢度唔支援下載 Excel 格式。" : (c === "unavailable" || c === "not_granted") ? "呢個檢視唔支援下載檔案。" : "整 Excel 時出錯，再試一次。";
+  }
+  e.busy = false; render(true);
+}
+
+/* ---------- backup & restore ---------- */
+async function backupNow() {
+  if (!S.dl) { toast("呢個檢視唔支援下載檔案"); return; }
+  let photos = {};
+  try { const got = await Store.photosFor("0000-01-01", "9999-12-31"); const dates = {}; for (const d in S.days) (S.days[d].meals || []).forEach(m => { dates[m.id] = d; }); for (const id in got) photos[id] = {date:dates[id] || "", img:got[id]}; } catch (e) { photos = {}; }
+  const body = JSON.stringify({app:"shikyuk", v:1, exported:new Date().toISOString(), profile:S.profile, days:S.days, favs:S.favs, photos});
+  try {
+    const res = await S.dl.save({filename:`食郁記_備份_${today().replace(/-/g, "")}.json`, data:new Blob([body], {type:"application/json"})});
+    toast(res && res.where === "device" ? "備份已儲存到「下載／食郁記」" : "備份已下載");
+  } catch (e) { if (e && e.code !== "declined") toast("匯出備份失敗"); }
+}
+function restoreFrom(text) {
+  let b;
+  try { b = JSON.parse(text); } catch (e) { toast("讀唔到呢個檔案"); return; }
+  if (!b || b.app !== "shikyuk" || typeof b.days !== "object") { toast("呢個唔係食郁記嘅備份檔"); return; }
+  const changed = new Set(); let nDays = 0;
+  if (b.profile && +b.profile.heightCm > 0) S.profile = b.profile;
+  for (const [d, raw] of Object.entries(b.days || {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !raw) continue;
+    const day = {date:d, meals:Array.isArray(raw.meals) ? raw.meals : [], ex:Array.isArray(raw.ex) ? raw.ex : [], water:+raw.water || 0, weight:+raw.weight > 0 ? +raw.weight : null};
+    const cur = S.days[d];
+    if (!cur) S.days[d] = day;
+    else {
+      cur.meals ||= []; cur.ex ||= [];
+      const mi = new Set(cur.meals.map(m => m.id)), ei = new Set(cur.ex.map(x => x.id));
+      day.meals.forEach(m => { if (!mi.has(m.id)) cur.meals.push(m); });
+      day.ex.forEach(x => { if (!ei.has(x.id)) cur.ex.push(x); });
+      cur.water = Math.max(+cur.water || 0, day.water);
+      if (!(+cur.weight > 0) && day.weight) cur.weight = day.weight;
+    }
+    changed.add(d); nDays++;
+  }
+  const fv = normFavs(b.favs);
+  const fi = new Set(S.favs.foods.map(x => x.id)), xi = new Set(S.favs.ex.map(x => x.id));
+  fv.foods.forEach(x => { if (!fi.has(x.id)) S.favs.foods.push(x); });
+  fv.ex.forEach(x => { if (!xi.has(x.id)) S.favs.ex.push(x); });
+  const ph = {};
+  for (const [id, v] of Object.entries(b.photos || {})) if (v && typeof v.img === "string" && v.img.startsWith("data:image/")) { ph[id] = {date:v.date || "", img:v.img}; S.photos[id] = v.img; }
+  if (Store.mode === "cloud") {
+    if (S.profile) Store.saveProfile();
+    Store.saveFavs();
+    changed.forEach(d => Store.write("days/" + d, clone(S.days[d])));
+  } else Store.persistLocal();
+  if (Object.keys(ph).length) Store.savePhotosBulk(ph);
+  S.photoLoaded = {};
+  render(true); toast(`已還原 ${nDays} 日記錄`);
+}
+
+/* ---------- AI settings (outside Claude) ---------- */
+function setAiMsg(m) { S.aiMsg = m; const el = $("#aiMsg"); if (el) el.textContent = m; }
+function applyAiCfg() {
+  if (PLATFORM === "claude") return;
+  const c = aiCfg();
+  S.ai = c.key ? makeApiAi(c) : null;
+  S.aiImages = !!c.key;
+}
+function aiSave() {
+  const c = aiCfg(), k = ($("#aiKey")?.value || "").trim(), model = $("#aiModel")?.value || c.model;
+  if (k && !/^sk-ant-/.test(k)) { setAiMsg("Key 應該以 sk-ant- 開頭，檢查下有冇貼錯。"); return; }
+  LS.set(K_AI, {key:k || c.key, model});
+  applyAiCfg(); S.aiMsg = (k || c.key) ? "已儲存。" : "已儲存模型設定，未有 key。"; render(true);
+}
+async function aiTest() {
+  if (!S.ai) { setAiMsg("未有 key。"); return; }
+  setAiMsg("測試緊…");
+  try { const j = await S.ai.json('只回覆 JSON：{"ok":true}'); setAiMsg(j && j.ok ? `連線正常（${aiCfg().model}）。` : "有回覆，但格式唔啱，都算連到。"); }
+  catch (e) { setAiMsg(aiErr(e) || "測試失敗。"); }
+}
+window.__skjBack = () => {
+  if (S.sheet) { if (!(S.food?.busy || S.exs?.busy)) closeSheet(); return true; }
+  if (S.tab !== "home") { S.tab = "home"; render(true); window.scrollTo(0, 0); return true; }
+  return false;
+};
+
+/* ---------- events ---------- */
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-act]");
+  if (!b) { if (ev.target === $("#overlay") && !(S.food?.busy || S.exs?.busy)) closeSheet(); return; }
+  const a = b.dataset.act;
+  switch (a) {
+    case "tab": S.tab = b.dataset.t; render(true); window.scrollTo(0, 0); break;
+    case "hide": S.hide = !S.hide; LS.set(K_HIDE, S.hide); render(true); if (S.sheet === "ex") renderSheet(); break;
+    case "day": S.date = b.dataset.d; render(true); ensurePhotos(S.date); break;
+    case "wk": S.weekOffset = Math.min(0, S.weekOffset + Number(b.dataset.d)); { const end = addDays(today(), S.weekOffset * 7); S.date = end; } render(true); ensurePhotos(S.date); break;
+    case "addFood": openFood(); break;
+    case "addEx": openEx(); break;
+    case "editMeal": openFood(b.dataset.id); break;
+    case "editEx": openEx(b.dataset.id); break;
+    case "close": closeSheet(); break;
+    case "meal": if (S.food) { readEdit(); S.food.meal = b.dataset.m; if (S.food.step === "photo") S.food.note = ($("#fNote")?.value || "").trim(); if (S.food.step === "search") S.food.text = ($("#fText")?.value || ""); renderSheet(); } break;
+    case "fStep": { const f = S.food; f.error = ""; const s = b.dataset.s; if (s === "manual") { f.step = "edit"; f.src = "手動"; f.result = {dish:"", items:[], conf:"", tip:""}; } else f.step = s; renderSheet(); } break;
+    case "skipAi": { const f = S.food; f.note = ($("#fNote")?.value || "").trim(); f.step = "edit"; f.src = "相片"; f.result = {dish:f.note, items:[], conf:"", tip:""}; renderSheet(); } break;
+    case "analyse": analysePhoto(); break;
+    case "searchAi": searchAi(); break;
+    case "stopAi": S.food?.ctl?.abort(); break;
+    case "addItem": readEdit(); S.food.result.items.push({name:"", portion:"", kcal:0, p:0, c:0, f:0}); renderSheet(); setTimeout(() => $("#it-n-" + (S.food.result.items.length - 1))?.focus(), 30); break;
+    case "rmItem": readEdit(); S.food.result.items.splice(+b.dataset.i, 1); renderSheet(); break;
+    case "saveMeal": saveMeal(); break;
+    case "delMeal": delMeal(); break;
+    case "useFav": { const x = S.favs.foods.find(f => f.id === b.dataset.id); if (x) { const f = S.food; f.step = "edit"; f.src = "收藏"; f.result = {dish:x.name, items:clone(x.items || [{name:x.name, portion:"", kcal:x.kcal, p:x.p, c:x.c, f:x.f}]), conf:"", tip:""}; renderSheet(); } } break;
+    case "rmFav": S.favs.foods = S.favs.foods.filter(f => f.id !== b.dataset.id); Store.saveFavs(); renderSheet(); break;
+    case "exTab": readExTime(); if (S.exs.tab === "custom") readCustom(); if (S.exs.tab === "common") readExMin(); S.exs.tab = b.dataset.t; S.exs.error = ""; renderSheet(); break;
+    case "exSel": readExMin(); readExTime(); S.exs.sel = b.dataset.k; renderSheet(); break;
+    case "exMore": readExMin(); readExTime(); S.exs.more = !S.exs.more; renderSheet(); break;
+    case "exMin": readExMin(); S.exs.min = Math.max(5, Math.min(600, S.exs.min + Number(b.dataset.d))); { const i = $("#exMinIn"); if (i) i.value = S.exs.min; } updEx(); break;
+    case "saveEx": saveEx(); break;
+    case "saveCustomEx": saveCustomEx(); break;
+    case "stopExAi": S.exs?.ctl?.abort(); break;
+    case "delEx": delEx(); break;
+    case "useFavEx": { const x = S.favs.ex.find(e => e.id === b.dataset.id); if (x) { const kcal = x.met ? exKcal(x.met, x.min) : r0(x.kcal); if (!kcal) { toast("要先填體重"); break; } readExTime(); pushEx({id:uid(), time:S.exs.time, k:x.k, name:x.name, icon:x.icon, min:x.min, met:x.met, kcal, src:"收藏"}); closeSheet(); render(true); toast(`記低咗：${x.name} ${x.min} 分鐘 · ${fmt(kcal)} kcal`); } } break;
+    case "rmFavEx": S.favs.ex = S.favs.ex.filter(e => e.id !== b.dataset.id); Store.saveFavs(); renderSheet(); break;
+    case "water": { const d = getDay(S.date); d.water = Math.max(0, (+d.water || 0) + Number(b.dataset.ml)); Store.saveDay(S.date); render(true); } break;
+    case "waterCustom": { const v = r0($("#wCustom")?.value); if (v > 0 && v <= 5000) { const d = getDay(S.date); d.water = (+d.water || 0) + v; Store.saveDay(S.date); render(true); toast(`加咗 ${fmt(v)} ml`); } else toast("輸入 1 至 5000 ml"); } break;
+    case "weigh": { const v = r1($("#wIn")?.value); if (v >= 30 && v <= 300) { getDay(today()).weight = v; Store.saveDay(today()); render(true); toast(S.hide ? "已記錄今日體重" : `已記錄：${v.toFixed(1)} kg`); } else toast("輸入 30 至 300 kg"); } break;
+    case "wRange": S.wRange = b.dataset.r; render(true); break;
+    case "expRange": S.exp.range = b.dataset.r; S.exp.msg = ""; render(true); break;
+    case "export": exportXlsx("save"); break;
+    case "exportShare": exportXlsx("share"); break;
+    case "backup": backupNow(); break;
+    case "aiSave": aiSave(); break;
+    case "aiTest": aiTest(); break;
+    case "aiClear": LS.set(K_AI, {key:"", model:aiCfg().model}); applyAiCfg(); S.aiMsg = "已刪除 key。"; render(true); break;
+    case "goAi": closeSheet(); S.tab = "me"; render(true); setTimeout(() => { const c = $("#aiCard"); if (c) c.scrollIntoView({behavior:"smooth", block:"start"}); }, 30); break;
+    case "editProfile": S.prof = {...(S.profile || {sex:"M", activity:1.2, pace:0.5}), err:""}; if (!S.prof.startKg && S.profile?.weightKg) S.prof.startKg = S.profile.weightKg; openSheet("profile"); break;
+    case "pSex": S.prof.sex = b.dataset.v; ["pAge","pH","pW","pG","pWater"].forEach(id => { const el = $("#" + id); if (el) S.prof[{pAge:"age", pH:"heightCm", pW:"startKg", pG:"goalKg", pWater:"waterMl"}[id]] = el.value; }); S.prof.activity = +($("#pAct")?.value || S.prof.activity); S.prof.pace = +($("#pPace")?.value ?? S.prof.pace); renderSheet(); break;
+    case "saveProfile": saveProfile(); break;
+  }
+});
+function updEx() {
+  const x = S.exs, t = exType(x.sel); if (!t) return;
+  const k = $("#exK"), f = $("#exF"); if (k) k.textContent = fmt(exKcal(t.met, x.min)); if (f) f.textContent = exFormula(t.met, x.min);
+}
+document.addEventListener("input", ev => {
+  const t = ev.target;
+  if (S.sheet === "food" && S.food?.step === "edit" && t.closest("#fItems")) { readEdit(); const el = $("#fTot"); if (el) el.innerHTML = totHtml(sumItems(S.food.result.items)); }
+  if (t.id === "exMinIn") { readExMin(); updEx(); }
+});
+document.addEventListener("change", ev => {
+  const t = ev.target;
+  if (t.id === "fCam" || t.id === "fLib") { handleFoodPhoto(t.files && t.files[0]); t.value = ""; }
+  else if (t.id === "exShot") { exShot(t.files && t.files[0]); t.value = ""; }
+  else if (t.id === "restoreIn") { const f = t.files && t.files[0]; t.value = ""; if (f) { const r = new FileReader(); r.onload = () => restoreFrom(String(r.result || "")); r.onerror = () => toast("讀唔到呢個檔案"); r.readAsText(f); } }
+  else if (t.id === "expPhotos") { S.exp.photos = t.checked; }
+  else if (t.id === "expPersonal") { S.exp.personal = t.checked; render(true); }
+  else if (t.id === "expFrom") { S.exp.from = t.value; render(true); }
+  else if (t.id === "expTo") { S.exp.to = t.value; render(true); }
+});
+document.addEventListener("keydown", ev => { if (ev.key === "Escape" && S.sheet && !(S.food?.busy || S.exs?.busy)) closeSheet(); });
+
+/* ---------- boot ---------- */
+async function boot() {
+  const h = LS.get(K_HIDE); S.hide = h === null ? true : !!h;
+  const cache = LS.get(K_CACHE) || LS.get(K_LOCAL);
+  if (cache) { S.profile = cache.profile || null; S.days = cache.days || {}; S.favs = normFavs(cache.favs); }
+  render(true);
+  const use = n => (window.claude && typeof window.claude.use === "function") ? Promise.resolve(window.claude.use(n)).catch(() => null) : Promise.resolve(null);
+  const [db, user, sample, dl] = await Promise.all(["db", "user", "sample", "downloads"].map(use));
+  S.ai = sample || null; S.dl = dl || null;
+  if (sample) { try { const lim = await sample.limits(); S.aiImages = !!(lim && lim.images); } catch (e) { S.aiImages = false; } }
+  if (!IN_CLAUDE) { applyAiCfg(); S.dl = webDownloads; }
+  let owner = true;
+  if (user && typeof user.isOwner === "function") { try { owner = !!(await user.isOwner()); } catch (e) { owner = true; } }
+  if (db && owner) {
+    try { await Store.initCloud(db); S.mode = "cloud"; }
+    catch (e) { Store.mode = "local"; S.mode = "local"; const l = LS.get(K_LOCAL) || {}; S.profile = l.profile || null; S.days = l.days || {}; S.favs = normFavs(l.favs); }
+  } else {
+    Store.mode = "local"; S.mode = "local";
+    const l = LS.get(K_LOCAL) || {}; S.profile = l.profile || null; S.days = l.days || {}; S.favs = normFavs(l.favs);
+  }
+  S.ready = true; render(); ensurePhotos(S.date);
+}
+boot();
+})();
+</script>
+</body>
+</html>
